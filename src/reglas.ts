@@ -169,6 +169,28 @@ const MAS_DIFICIL: Record<string, string> = {
   'Puente de glúteo': 'Zancadas',
 };
 
+export const patronDe = (nombre: string): Patron | null => CATALOGO.find((x) => mismoEjercicio(x.n, nombre))?.p ?? null;
+export type { Patron };
+
+// "Hoy no tengo gym": misma sesión con ejercicios del mismo tipo para el material que tengas.
+export function adaptarRutina(r: Rutina, equipo: Equipo): Rutina {
+  const usados = new Set<string>();
+  const ejercicios = r.ejercicios.flatMap((e) => {
+    const p = patronDe(e.nombre);
+    const actual = CATALOGO.find((x) => mismoEjercicio(x.n, e.nombre));
+    if (actual?.eq.includes(equipo)) {
+      usados.add(actual.n);
+      return [e];
+    }
+    const alt = p ? CATALOGO.find((x) => x.p === p && x.eq.includes(equipo) && !usados.has(x.n)) : undefined;
+    if (!alt) return [];
+    usados.add(alt.n);
+    const enCasa = equipo === 'casa' && p !== 'core' && p !== 'gemelos';
+    return [{ ...e, id: nuevoId(), nombre: alt.n, ...(enCasa ? { reps: 10, repsMax: 15 } : {}) }];
+  });
+  return { ...r, id: nuevoId(), nombre: `${r.nombre} (${equipo === 'casa' ? 'en casa' : 'con mancuernas'})`, ejercicios, deCoach: false, dia: undefined };
+}
+
 export function alternativas(nombre: string, perfil: Perfil | null) {
   const actual = CATALOGO.find((x) => mismoEjercicio(x.n, nombre));
   if (!actual) return [];

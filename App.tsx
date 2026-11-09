@@ -8,6 +8,8 @@ import { Datos, Nivel3, Perfil, Rutina, cargar, cerrarActivo, claveDia, datosIni
 import { EstadoNube, alCambiarEstado, borrarCuenta, cargarNube, eligioSinCuenta, guardarNube, nubeActiva, sb, usarSinCuenta, usuarioActual } from './src/nube';
 import { Cuenta } from './src/Cuenta';
 import { Retos, subirResumen } from './src/Retos';
+import { CompartirSemana, MapaMuscular, Medallas, NuevasMedallas } from './src/Extras';
+import { Medalla, medallas } from './src/extras';
 import { generarPlan, objetivos } from './src/reglas';
 import { Coach } from './src/Coach';
 import { Comida } from './src/Comida';
@@ -27,6 +29,7 @@ export default function App() {
   const [usuario, setUsuario] = useState<User | null>(null);
   const [pantallaCuenta, setPantallaCuenta] = useState<null | 'entrar' | 'nueva'>(null);
   const [estadoNube, setEstadoNube] = useState<EstadoNube>('guardado');
+  const [nuevas, setNuevas] = useState<Medalla[]>([]);
   const [animo, setAnimo] = useState<{ rutina: Rutina; sueno: Nivel3; energia: Nivel3 } | null>(null);
 
   // Al entrar: si la nube tiene datos, mandan; si está vacía, se suben los del móvil
@@ -82,6 +85,14 @@ export default function App() {
     }
     return () => sub?.data.subscription.unsubscribe();
   }, []);
+
+  // Medallas recién conseguidas: se avisan una vez.
+  useEffect(() => {
+    if (!datos || datos.activo || nuevas.length) return;
+    const vistas = datos.medallasVistas ?? [];
+    const recien = medallas(datos).filter((m) => m.hecho && !vistas.includes(m.id));
+    if (recien.length) setNuevas(recien);
+  }, [datos?.sesiones.length, datos?.recetasHechas.length, datos?.comida, datos?.perfil, datos?.activo]);
 
   useEffect(() => {
     if (!datos) return;
@@ -189,6 +200,8 @@ export default function App() {
           onDescanso={(descanso) => setDatos((d) => (d ? { ...d, descanso } : d))}
           onTerminar={terminar}
           onDescartar={() => setDatos({ ...datos, activo: null })}
+          voz={datos.voz}
+          onVoz={(voz) => setDatos((d) => (d ? { ...d, voz } : d))}
         />
       ) : (
         <>
@@ -234,7 +247,11 @@ export default function App() {
             ) : (
               <Progreso
                 arriba={
-                  usuario ? (
+                  <>
+                  <MapaMuscular d={datos} />
+                  <Medallas d={datos} />
+                  <CompartirSemana d={datos} />
+                  {usuario ? (
                     <Retos d={datos} />
                   ) : nubeActiva ? (
                     <Tarjeta>
@@ -242,7 +259,8 @@ export default function App() {
                       <Text style={e.consejo}>Compite cada semana con tus amigos: entrenos, proteína y rachas. Necesitas una cuenta.</Text>
                       <Pildora chica texto="Crear cuenta o entrar" onPress={() => setPantallaCuenta('entrar')} />
                     </Tarjeta>
-                  ) : null
+                  ) : null}
+                  </>
                 }
                 sesiones={datos.sesiones}
                 onBorrar={(id) => setDatos({ ...datos, sesiones: datos.sesiones.filter((x) => x.id !== id) })}
@@ -257,6 +275,15 @@ export default function App() {
           </View>
         </>
       )}
+      {nuevas.length && !resumen ? (
+        <NuevasMedallas
+          lista={nuevas}
+          onListo={() => {
+            setDatos((d) => (d ? { ...d, medallasVistas: [...new Set([...(d.medallasVistas ?? []), ...nuevas.map((m) => m.id)])] } : d));
+            setNuevas([]);
+          }}
+        />
+      ) : null}
       {animo ? (
         <Dialogo titulo="¿Cómo estás hoy?" si={esFlojo(animo) ? 'Empezar día ligero' : 'Empezar'} no="Cancelar" onSi={confirmarAnimo} onNo={() => setAnimo(null)}>
           <Text style={e.pregunta}>¿Qué tal has dormido?</Text>

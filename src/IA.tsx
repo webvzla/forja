@@ -7,6 +7,7 @@ import { Ingrediente, Linea, Receta, Tipo, Unidad, crearAlimento, macrosDe, porI
 import { Datos, Stock, claveDia, nuevoId } from './datos';
 import { ErrorIA, pedirIA, pedirJSON, textoErrorIA } from './nube';
 import { nutricion, textoObjetivo } from './reglas';
+import { metaDia } from './extras';
 import { Campo, Pildora, Tarjeta, c } from './ui';
 import { elegirArchivo } from './web';
 
@@ -42,7 +43,7 @@ export async function fotoParaIA(file: File): Promise<{ base64: string; tipo: st
 }
 
 // ---------- Ticket ----------
-export type LineaTicket = { ing: string; cantidad: string; nuevo?: Ingrediente; caduca?: string };
+export type LineaTicket = { ing: string; cantidad: string; nuevo?: Ingrediente; caduca?: string; euros?: number };
 
 export async function leerTicketIA(file: File): Promise<LineaTicket[]> {
   const imagen = await fotoParaIA(file);
@@ -57,6 +58,7 @@ Para cada alimento devuelve:
 - "cantidad": cantidad TOTAL comprada en la unidad del catálogo (multiplica por las unidades compradas; si el peso no aparece, estima el formato típico)
 - "unidad": "g", "ml" o "ud" (la del catálogo si tiene id)
 - "dias": días aproximados que dura en casa (fresco 2-5, lácteos 7-15, seco 180)
+- "euros": precio total pagado por esa línea (número), o null si no se ve
 Solo si "id" es null, añade también: "tipo" (proteina|legumbre|lacteo|suplemento|carbo|verdura|fruta|grasa) y los valores típicos por 100 g/ml (o por unidad si "ud"): "p" (proteína g), "kcal", "h" (carbohidratos g), "g" (grasa g).
 Formato: {"items": [ ... ]}`,
     { imagen },
@@ -69,13 +71,13 @@ Formato: {"items": [ ... ]}`,
     const ing = x.id ? porId(String(x.id)) : undefined;
     if (ing) {
       const prev = suma.get(ing.id);
-      suma.set(ing.id, { ing: ing.id, cantidad: String(Math.round(cantidad + num(prev?.cantidad))), caduca: prev?.caduca ?? caduca });
+      suma.set(ing.id, { ing: ing.id, cantidad: String(Math.round(cantidad + num(prev?.cantidad))), caduca: prev?.caduca ?? caduca, euros: num(x.euros) + (prev?.euros ?? 0) || undefined });
       continue;
     }
     const tipo: Tipo = TIPOS.includes(x.tipo) ? x.tipo : 'proteina';
     const unidad: Unidad = UNIDADES.includes(x.unidad) ? x.unidad : 'g';
     const nuevo = { ...crearAlimento(String(x.nombre), tipo, unidad, [num(x.p), num(x.kcal), num(x.h), num(x.g)]), id: `p_${nuevoId()}` };
-    suma.set(nuevo.id, { ing: nuevo.id, cantidad: String(Math.round(cantidad)), nuevo, caduca });
+    suma.set(nuevo.id, { ing: nuevo.id, cantidad: String(Math.round(cantidad)), nuevo, caduca, euros: num(x.euros) || undefined });
   }
   return [...suma.values()];
 }
@@ -83,7 +85,7 @@ Formato: {"items": [ ... ]}`,
 // ---------- Recetas ----------
 export async function recetaIA(a: { d: Datos; ids: string[]; raciones: number; prohibido: Set<string>; pedido?: string }): Promise<Receta> {
   const { d } = a;
-  const meta = d.perfil ? nutricion(d.perfil) : null;
+  const meta = metaDia(d);
   const hoy = (d.comida[claveDia()] ?? []).reduce((t, x) => ({ p: t.p + x.proteina, kcal: t.kcal + x.kcal }), { p: 0, kcal: 0 });
   const despensa = d.despensa
     .filter((s) => !a.prohibido.has(s.ing))
@@ -103,7 +105,7 @@ ${a.pedido ? `Lo que le apetece: ${a.pedido}.` : ''}
 Despensa (id: nombre, cantidad):
 ${despensa || '(vacía)'}
 ${evitar ? `NO uses nunca: ${evitar}.` : ''}
-${meta ? `Su meta diaria: ${meta.proteina} g de proteína y ${meta.kcal} kcal. Hoy lleva ${Math.round(hoy.p)} g y ${Math.round(hoy.kcal)} kcal. Una ración debería aportar unos ${Math.max(20, Math.min(55, Math.round(meta.proteina / 3)))} g de proteína.` : ''}
+${meta ? `Hoy es día de ${meta.tipo === 'descanso' ? 'descanso (menos carbohidratos)' : `entreno: ${meta.rutina} (más carbohidratos)`}. Su meta de hoy: ${meta.proteina} g de proteína y ${meta.kcal} kcal. Hoy lleva ${Math.round(hoy.p)} g y ${Math.round(hoy.kcal)} kcal. Una ración debería aportar unos ${Math.max(20, Math.min(55, Math.round(meta.proteina / 3)))} g de proteína.` : ''}
 Usa ingredientes de la despensa (puedes añadir del catálogo si falta algo esencial). Escribe los pasos con palabras que se entiendan en España y en Venezuela (cocinar, hervir, sofreír; evita "cocer"). La lechuga, el pepino y el aguacate van en crudo. Sal, pimienta, especias, agua y un chorrito de aceite no cuentan.
 Catálogo (id: nombre (unidad)):
 ${catalogo()}

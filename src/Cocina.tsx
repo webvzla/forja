@@ -9,6 +9,7 @@ import { NOMBRE_DIA, diaHoy, nutricion } from './reglas';
 import { compartirTexto, elegirArchivo, leerTicket } from './web';
 import { LineaTicket, leerTicketIA, recetaIA, textoError } from './IA';
 import { nubeActiva, usuarioActual } from './nube';
+import { metaDia, rankingProteina } from './extras';
 import { Campo, Dialogo, Pildora, Tarjeta, c } from './ui';
 
 type Actualizar = (f: (d: Datos) => Datos) => void;
@@ -192,6 +193,29 @@ export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualiza
         <Text style={e.sub}>Tienes proteína para unos {formatoNum(Math.round(dias * 10) / 10)} días de tu meta.</Text>
       ) : null}
       {!d.despensa.length ? <Text style={e.sub}>Vacía. Escanea un ticket o añade algo a mano.</Text> : null}
+      {(() => {
+        const r = rankingProteina(d);
+        if (!r.length) return null;
+        const semana = meta * 7;
+        return (
+          <Tarjeta>
+            <Text style={e.titulo}>💶 Tu proteína más barata</Text>
+            {r.slice(0, 5).map((x, k) => (
+              <View key={x.id} style={e.entre}>
+                <Text style={e.linea}>{k + 1}. {x.nombre}</Text>
+                <Text style={{ color: k === 0 ? c.verde : c.texto, fontSize: 15, fontWeight: '700' }}>{x.eur100.toFixed(2).replace('.', ',')} € / 100 g prot.</Text>
+              </View>
+            ))}
+            {semana > 0 ? (
+              <Text style={e.sub}>
+                Tu proteína de la semana ({semana} g) solo con {r[0].nombre.toLowerCase()} costaría unos {((r[0].eur100 * semana) / 100).toFixed(0)} €
+                {r.length > 1 ? `; con ${r[r.length - 1].nombre.toLowerCase()}, ${((r[r.length - 1].eur100 * semana) / 100).toFixed(0)} €` : ''}.
+              </Text>
+            ) : null}
+            <Text style={e.nota}>Con los precios de tus tickets escaneados con IA.</Text>
+          </Tarjeta>
+        );
+      })()}
       {orden.map((s) => (
         <FilaStock
           key={`${s.ing}-${s.cantidad}`}
@@ -238,6 +262,10 @@ export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualiza
             onActualizar((x) => ({
               ...x,
               misAlimentos: [...x.misAlimentos, ...validos.flatMap((it) => (it.nuevo && !x.misAlimentos.some((m) => m.id === it.ing) ? [it.nuevo] : []))],
+              precios: validos.reduce(
+                (acc, it) => (it.euros ? { ...acc, [it.ing]: { euros: it.euros, cantidad: aNumero(it.cantidad), fecha: Date.now() } } : acc),
+                x.precios ?? {},
+              ),
               despensa: validos.reduce((acc, it) => {
                 const sumado = sumar(acc, it.ing, aNumero(it.cantidad));
                 return it.caduca ? sumado.map((st) => (st.ing === it.ing && !st.caduca ? { ...st, caduca: it.caduca } : st)) : sumado;
@@ -259,6 +287,7 @@ export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualiza
                   onChangeText={(t) => setRevision({ ...revision, items: revision.items.map((y, n) => (n === k ? { ...y, cantidad: t } : y)) })}
                 />
                 <Text style={e.unidad}>{porId(it.ing)?.unidad ?? it.nuevo?.unidad}</Text>
+                {it.euros ? <Text style={[e.unidad, { width: 52, textAlign: 'right' }]}>{it.euros.toFixed(2).replace('.', ',')} €</Text> : null}
               </View>
             ))}
           </ScrollView>
@@ -328,7 +357,7 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
   const [deIA, setDeIA] = useState<Receta | null>(null);
   const [pensando, setPensando] = useState(false);
 
-  const meta = d.perfil ? nutricion(d.perfil) : null;
+  const meta = metaDia(d);
   const hoy = claveDia();
   const prohibido = prohibidos(d.preferencias);
   const permitidas = activos.filter((x) => !prohibido.has(x));

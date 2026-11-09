@@ -107,3 +107,23 @@ export async function exportarCopia(contenido: string) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+export async function compartirArchivo(blob: Blob, nombre: string, titulo: string): Promise<'compartido' | 'descargado' | 'cancelado'> {
+  const archivo = new File([blob], nombre, { type: blob.type });
+  const n = navigator as any;
+  if (n.canShare?.({ files: [archivo] })) {
+    try {
+      await n.share({ files: [archivo], title: titulo });
+      return 'compartido';
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return 'cancelado';
+    }
+  }
+  const url = URL.createObjectURL(archivo);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return 'descargado';
+}

@@ -5,6 +5,7 @@ import { ALIMENTOS, nutricion } from './reglas';
 import { Despensa, Menu, Preset, Recetas } from './Cocina';
 import { Campo, Pildora, Tarjeta, Titulo, c } from './ui';
 import { FotoPlato } from './IA';
+import { metaDia, textoMetaDia } from './extras';
 import { nubeActiva } from './nube';
 
 type Vista = 'hoy' | 'despensa' | 'recetas' | 'menu';
@@ -83,7 +84,7 @@ function Hoy(p: {
   const fecha = fechaDe(hace);
   const dia = claveDia(fecha.getTime());
   const items = d.comida[dia] ?? [];
-  const meta = d.perfil ? nutricion(d.perfil) : null;
+  const meta = metaDia(d, fecha.getTime());
   const totalP = items.reduce((n, x) => n + x.proteina, 0);
   const totalK = items.reduce((n, x) => n + x.kcal, 0);
   const faltan = meta ? meta.proteina - totalP : 0;
@@ -118,6 +119,7 @@ function Hoy(p: {
           <Text style={e.cifra}>{Math.round(totalK)}{meta ? ` / ${meta.kcal}` : ''} kcal</Text>
         </View>
         <Barra valor={totalK} meta={meta?.kcal ?? 0} color={c.verde} />
+        {meta ? <Text style={{ color: c.oro, fontSize: 14, lineHeight: 20 }}>{meta.tipo === 'descanso' ? '😴 ' : meta.tipo === 'pierna' ? '🦵 ' : '💪 '}{textoMetaDia(meta)}</Text> : null}
         <Text style={e.sub}>
           {!meta
             ? 'Completa tu perfil en Coach para ver tus metas.'

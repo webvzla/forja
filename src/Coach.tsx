@@ -5,7 +5,7 @@ import { ChatCoach } from './IA';
 import type { EstadoNube } from './nube';
 import { EnlacePrivacidad } from './Privacidad';
 import { Datos, Enfasis, Equipo, Nivel, Objetivo, Perfil, Rutina, aNumero, formatoNum, zonas } from './datos';
-import { NOMBRE_DIA, ajustarPlan, diaHoy, inicioSemana, nutricion, revisar, TEXTO_OBJETIVO, incompatibles, objetivos, textoObjetivo } from './reglas';
+import { NOMBRE_DIA, ajustarPlan, diaHoy, inicioSemana, nutricion, revisar, TEXTO_OBJETIVO, adaptarRutina, incompatibles, objetivos, textoObjetivo } from './reglas';
 import { Grafica } from './Progreso';
 import { Campo, Dialogo, Pildora, Tarjeta, Titulo, c } from './ui';
 
@@ -195,6 +195,7 @@ export function Coach(p: {
   cuenta?: { email: string | null; estado: EstadoNube; onEntrar: () => void; onSalir: () => void; onBorrar: () => Promise<boolean> } | null;
 }) {
   const [copia, setCopia] = useState<Datos | null>(null);
+  const [sinGym, setSinGym] = useState(false);
   const [borrar, setBorrar] = useState<'no' | 'preguntar' | 'borrando' | 'error'>('no');
   const [errorCopia, setErrorCopia] = useState('');
   const [zona, setZona] = useState('Cintura');
@@ -231,7 +232,7 @@ export function Coach(p: {
         <Text style={e.grande}>{textoObjetivo(perfil)}</Text>
         <Text style={e.sub}>{perfil.dias} días por semana · {formatoNum(perfil.peso)} kg · IMC {formatoNum(Math.round(n.imc * 10) / 10)}</Text>
         <View style={e.datos}>
-          <Cifra valor={String(n.kcal)} texto="kcal al día" />
+          <Cifra valor={String(n.kcal)} texto="kcal al día (media)" />
           <Cifra valor={`${n.proteina} g`} texto="proteína al día" />
         </View>
         {n.aviso ? <Text style={{ color: c.oro, fontSize: 15, lineHeight: 21 }}>{n.aviso}</Text> : null}
@@ -242,7 +243,7 @@ export function Coach(p: {
 
       <Text style={e.seccion}>Esta semana</Text>
       {plan.map((x) => {
-        const hecha = d.sesiones.some((s) => s.fecha >= lunes && s.rutinaNombre === x.nombre);
+        const hecha = d.sesiones.some((s) => s.fecha >= lunes && (s.rutinaNombre === x.nombre || s.rutinaNombre.startsWith(`${x.nombre} (`)));
         return (
           <View key={x.id} style={[e.dia, x.dia === hoy && e.diaHoy]}>
             <Text style={[e.diaNombre, x.dia === hoy && { color: c.oro }]}>{NOMBRE_DIA[x.dia ?? 0]}</Text>
@@ -258,6 +259,9 @@ export function Coach(p: {
           </View>
         );
       })}
+      {plan.length && perfil.equipo !== 'casa' ? (
+        <Pildora chica tipo="neutro" texto="🏠 Hoy no tengo gym" onPress={() => setSinGym(true)} />
+      ) : null}
 
       <Text style={e.seccion}>Revisión semanal</Text>
       <Tarjeta>
@@ -399,6 +403,24 @@ export function Coach(p: {
             {errorCopia ? <Text style={{ color: c.rojo, fontSize: 15 }}>{errorCopia}</Text> : null}
           </Tarjeta>
         </>
+      ) : null}
+
+      {sinGym ? (
+        <Dialogo titulo="¿Qué tienes hoy?" mensaje="Te cambio la sesión de hoy por una equivalente: mismos músculos, con lo que tengas a mano." si="Cancelar" onSi={() => setSinGym(false)}>
+          {(perfil.equipo === 'gym' ? (['mancuernas', 'casa'] as const) : (['casa'] as const)).map((eq) => (
+            <Pildora
+              key={eq}
+              texto={eq === 'mancuernas' ? '🏋️ Tengo mancuernas' : '🏠 Nada, solo mi cuerpo'}
+              tipo="neutro"
+              onPress={() => {
+                const pendientes = plan.filter((x) => !d.sesiones.some((s) => s.fecha >= lunes && s.rutinaNombre.startsWith(x.nombre)));
+                const base = plan.find((x) => x.dia === hoy) ?? pendientes.find((x) => (x.dia ?? 0) >= hoy) ?? pendientes[0] ?? plan[0];
+                setSinGym(false);
+                p.onEmpezar(adaptarRutina(base, eq));
+              }}
+            />
+          ))}
+        </Dialogo>
       ) : null}
 
       {borrar === 'preguntar' || borrar === 'borrando' ? (

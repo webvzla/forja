@@ -72,6 +72,9 @@ export type Datos = {
   agua: Record<string, number>; // ml por día
   medidas: Record<string, { fecha: number; max: number }[]>; // cm por zona
   animo: Record<string, { sueno: Nivel3; energia: Nivel3 }>; // cómo te sientes, por día
+  precios: Record<string, { euros: number; cantidad: number; fecha: number }>; // último precio pagado por alimento
+  voz: boolean; // coach por voz durante el entreno
+  medallasVistas: string[];
 };
 
 export type Nivel3 = 0 | 1 | 2; // 0 mal · 1 regular · 2 bien
@@ -151,6 +154,9 @@ export const datosIniciales = (): Datos => ({
   agua: {},
   medidas: {},
   animo: {},
+  precios: {},
+  voz: false,
+  medallasVistas: [],
 });
 
 export async function cargar(): Promise<Datos> {

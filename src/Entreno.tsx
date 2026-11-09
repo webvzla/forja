@@ -4,6 +4,9 @@ import { Activo, EjercicioActivo, Perfil, Sesion, formatoNum, pesoMaximo, ultima
 import { GUIAS } from './guias';
 import { alternativas, pesoSugerido } from './reglas';
 import { Campo, Dialogo, Pildora, Tarjeta, avisoFinDescanso, c, prepararSonido } from './ui';
+import { Discos } from './Extras';
+import { aNumero } from './datos';
+import { esConBarra, hablar, hayVoz } from './extras';
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
@@ -16,6 +19,8 @@ export function Entreno(p: {
   onDescanso: (segundos: number) => void;
   onTerminar: () => void;
   onDescartar: () => void;
+  voz?: boolean;
+  onVoz?: (si: boolean) => void;
 }) {
   const a = p.activo;
   const [ahora, setAhora] = useState(Date.now());
@@ -23,6 +28,7 @@ export function Entreno(p: {
   const [guia, setGuia] = useState<string | null>(null);
   const [cambiando, setCambiando] = useState<number | null>(null);
   const [recienTerminado, setRecienTerminado] = useState(false);
+  const [discos, setDiscos] = useState<number | null>(null);
   const avisado = useRef(false);
 
   useEffect(() => {
@@ -38,11 +44,27 @@ export function Entreno(p: {
     } else if (restante <= 0 && !avisado.current) {
       avisado.current = true;
       avisoFinDescanso();
+      if (p.voz) anunciarSiguiente();
       setRecienTerminado(true);
       p.onCambio({ ...a, finDescanso: null });
       setTimeout(() => setRecienTerminado(false), 3000);
     }
   }, [restante]);
+
+  // Coach por voz: dice cuál es la siguiente serie al acabar el descanso.
+  function anunciarSiguiente() {
+    for (let i = 0; i < a.ejercicios.length; i++) {
+      const x = a.ejercicios[i];
+      const j = x.series.findIndex((z) => !z.hecha);
+      if (j < 0) continue;
+      const ref = referencia(x, j);
+      const kg = aNumero(x.series[j].peso || ref.peso);
+      const reps = x.series[j].reps || ref.reps;
+      hablar(`Fin del descanso. ${x.nombre}, serie ${j + 1}${kg > 0 ? `, ${String(kg).replace('.', ' coma ')} kilos` : ''}, ${reps} repeticiones.`);
+      return;
+    }
+    hablar('Fin del descanso. Has terminado todas las series, ¡buen trabajo!');
+  }
 
   const hechas = a.ejercicios.reduce((n, x) => n + x.series.filter((s) => s.hecha).length, 0);
   const total = a.ejercicios.reduce((n, x) => n + x.series.length, 0);
@@ -73,9 +95,11 @@ export function Entreno(p: {
     const ref = referencia(x, j);
     const peso = s.peso || ref.peso;
     const reps = s.reps || ref.reps;
+    const seg = x.descanso ?? p.descanso;
+    if (p.voz) hablar(`Serie hecha. Descansa ${seg >= 60 && seg % 60 === 0 ? `${seg / 60} ${seg === 60 ? 'minuto' : 'minutos'}` : `${seg} segundos`}.`);
     p.onCambio({
       ...a,
-      finDescanso: Date.now() + (x.descanso ?? p.descanso) * 1000,
+      finDescanso: Date.now() + seg * 1000,
       ejercicios: a.ejercicios.map((y, yi) =>
         yi !== i
           ? y
@@ -125,6 +149,21 @@ export function Entreno(p: {
           <Text style={e.titulo} numberOfLines={1}>{a.rutinaNombre}</Text>
           <Text style={e.sub}>{hechas} de {total} series · {mmss(Math.floor((ahora - a.inicio) / 1000))}</Text>
         </View>
+        {hayVoz() && p.onVoz ? (
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: !!p.voz }}
+            accessibilityLabel="Coach por voz"
+            onPress={() => {
+              const si = !p.voz;
+              p.onVoz?.(si);
+              if (si) hablar('Coach por voz activado. Te aviso al acabar cada descanso.');
+            }}
+            style={[e.voz, p.voz && { backgroundColor: c.oro }]}
+          >
+            <Text style={{ fontSize: 20 }}>{p.voz ? '🔊' : '🔇'}</Text>
+          </Pressable>
+        ) : null}
         <Pildora chica texto="Terminar" onPress={() => setDialogo('terminar')} />
       </View>
 
@@ -156,6 +195,19 @@ export function Entreno(p: {
                 {GUIAS[x.nombre] ? (
                   <Pressable accessibilityRole="button" accessibilityLabel={`Cómo se hace ${x.nombre}`} style={e.enlace} onPress={() => setGuia(x.nombre)}>
                     <Text style={e.enlaceTexto}>Cómo se hace</Text>
+                  </Pressable>
+                ) : null}
+                {esConBarra(x.nombre) ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Discos para ${x.nombre}`}
+                    style={e.enlace}
+                    onPress={() => {
+                      const j = Math.max(0, x.series.findIndex((z) => !z.hecha));
+                      setDiscos(aNumero(x.series[j]?.peso || referencia(x, j).peso));
+                    }}
+                  >
+                    <Text style={e.enlaceTexto}>Discos</Text>
                   </Pressable>
                 ) : null}
                 {alternativas(x.nombre, p.perfil).length && !x.series.some((s) => s.hecha) ? (
@@ -291,6 +343,7 @@ export function Entreno(p: {
           />
         )
       ) : null}
+      {discos !== null ? <Discos peso={discos} onCerrar={() => setDiscos(null)} /> : null}
       {dialogo === 'salir' ? (
         <Dialogo
           titulo="¿Salir sin guardar?"
@@ -307,6 +360,7 @@ export function Entreno(p: {
 }
 
 const e = StyleSheet.create({
+  voz: { width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.campo, marginRight: 8 },
   cabecera: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderBottomWidth: 1, borderBottomColor: c.borde },
   titulo: { color: c.texto, fontSize: 26, fontWeight: '900' },
   sub: { color: c.suave, fontSize: 15, lineHeight: 21 },
