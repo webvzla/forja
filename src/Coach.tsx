@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { elegirArchivo, exportarCopia } from './web';
+import { ChatCoach } from './IA';
+import type { EstadoNube } from './nube';
 import { Datos, Enfasis, Equipo, Nivel, Objetivo, Perfil, Rutina, aNumero, formatoNum } from './datos';
 import { NOMBRE_DIA, ajustarPlan, diaHoy, inicioSemana, nutricion, revisar } from './reglas';
 import { Grafica } from './Progreso';
@@ -127,6 +129,7 @@ export function Coach(p: {
   onRestaurar: (copia: Datos) => void;
   onDescarga: (hasta: number | null) => void;
   onMedida: (zona: string, cm: number) => void;
+  cuenta?: { email: string | null; estado: EstadoNube; onEntrar: () => void; onSalir: () => void } | null;
 }) {
   const [copia, setCopia] = useState<Datos | null>(null);
   const [errorCopia, setErrorCopia] = useState('');
@@ -170,6 +173,8 @@ export function Coach(p: {
         {n.aviso ? <Text style={{ color: c.oro, fontSize: 15, lineHeight: 21 }}>{n.aviso}</Text> : null}
         <Pildora chica tipo="neutro" texto="Editar perfil" onPress={() => setEditando(true)} />
       </Tarjeta>
+
+      {p.cuenta?.email ? <ChatCoach d={d} /> : null}
 
       <Text style={e.seccion}>Esta semana</Text>
       {plan.map((x) => {
@@ -279,11 +284,33 @@ export function Coach(p: {
         </View>
       </Tarjeta>
 
+      {p.cuenta ? (
+        <>
+          <Text style={e.seccion}>Tu cuenta</Text>
+          <Tarjeta>
+            {p.cuenta.email ? (
+              <>
+                <Text style={e.sub}>{p.cuenta.email}</Text>
+                <Text style={{ color: p.cuenta.estado === 'sin-conexion' ? c.oro : c.verde, fontSize: 15 }}>
+                  {p.cuenta.estado === 'guardado' ? '✓ Datos guardados en la nube' : p.cuenta.estado === 'guardando' ? 'Guardando…' : 'Sin conexión: se guarda en el móvil y se sube al volver'}
+                </Text>
+                <Pildora chica tipo="neutro" texto="Cerrar sesión" onPress={p.cuenta.onSalir} />
+              </>
+            ) : (
+              <>
+                <Text style={e.sub}>Estás usando la app sin cuenta: los datos solo viven en este móvil. Con una cuenta se guardan en la nube y puedes usar la IA (tickets, recetas y preguntar al coach).</Text>
+                <Pildora chica texto="Crear cuenta o entrar" onPress={p.cuenta.onEntrar} />
+              </>
+            )}
+          </Tarjeta>
+        </>
+      ) : null}
+
       {Platform.OS === 'web' ? (
         <>
           <Text style={e.seccion}>Copia de seguridad</Text>
           <Tarjeta>
-            <Text style={e.sub}>Tus datos viven en este móvil. Guarda una copia en Archivos o iCloud de vez en cuando.</Text>
+            <Text style={e.sub}>{p.cuenta?.email ? 'Tus datos ya están en la nube. Si quieres, guarda también una copia en Archivos o iCloud.' : 'Tus datos viven en este móvil. Guarda una copia en Archivos o iCloud de vez en cuando.'}</Text>
             <Pildora chica tipo="neutro" texto="Guardar copia" onPress={() => exportarCopia(JSON.stringify(d))} />
             <Pildora
               chica

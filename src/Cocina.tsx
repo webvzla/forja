@@ -7,6 +7,8 @@ import {
 } from './alimentos';
 import { NOMBRE_DIA, diaHoy, nutricion } from './reglas';
 import { compartirTexto, elegirArchivo, leerTicket } from './web';
+import { LineaTicket, leerTicketIA, recetaIA, textoError } from './IA';
+import { nubeActiva, usuarioActual } from './nube';
 import { Campo, Dialogo, Pildora, Tarjeta, c } from './ui';
 
 type Actualizar = (f: (d: Datos) => Datos) => void;
@@ -97,7 +99,7 @@ const UNIDADES: [Unidad, string][] = [['g', 'Gramos'], ['ml', 'Mililitros'], ['u
 export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualizar: Actualizar }) {
   const [estado, setEstado] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [revision, setRevision] = useState<{ items: { ing: string; cantidad: string }[]; ignoradas: number } | null>(null);
+  const [revision, setRevision] = useState<{ items: LineaTicket[]; ignoradas: number; ia?: boolean } | null>(null);
   const [nombre, setNombre] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [aviso, setAviso] = useState('');
@@ -113,6 +115,20 @@ export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualiza
     setError('');
     const f = await elegirArchivo('image/*');
     if (!f) return;
+    // Con cuenta: lo lee la IA (entiende cualquier producto). Si falla, el lector del móvil.
+    if (nubeActiva && (await usuarioActual())) {
+      setEstado('La IA está leyendo tu ticket…');
+      try {
+        const items = await leerTicketIA(f);
+        if (items.length) {
+          setRevision({ items, ignoradas: 0, ia: true });
+          setEstado(null);
+          return;
+        }
+      } catch (err) {
+        if (err === 'limite') setError(textoError(err) + ' Lo intento con el lector del móvil.');
+      }
+    }
     setEstado('Preparando el lector…');
     try {
       const texto = await leerTicket(f, (x) => setEstado(`Leyendo el ticket… ${Math.round(x * 100)} %`));
@@ -155,7 +171,7 @@ export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualiza
       {Platform.OS === 'web' ? (
         <Tarjeta>
           <Text style={e.titulo}>Escanea tu ticket</Text>
-          <Text style={e.sub}>Foto recta y con buena luz. La imagen se lee en tu móvil y no se envía a ningún sitio.</Text>
+          <Text style={e.sub}>{nubeActiva ? 'Foto recta y con buena luz. Con cuenta la lee la IA y reconoce cualquier producto; sin cuenta se lee en tu móvil.' : 'Foto recta y con buena luz. La imagen se lee en tu móvil y no se envía a ningún sitio.'}</Text>
           <Pildora texto={estado ?? 'Hacer foto del ticket'} deshabilitado={!!estado} onPress={escanear} />
           {error ? <Text style={e.error}>{error}</Text> : null}
         </Tarjeta>
@@ -214,13 +230,18 @@ export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualiza
       {revision ? (
         <Dialogo
           titulo="Revisa tu compra"
-          mensaje={`Corrige lo que haga falta.${revision.ignoradas ? ` Líneas sin reconocer: ${revision.ignoradas}.` : ''}`}
+          mensaje={`${revision.ia ? 'Leído por la IA. ' : ''}Corrige lo que haga falta (pon 0 para quitar algo).${revision.ignoradas ? ` Líneas sin reconocer: ${revision.ignoradas}.` : ''}`}
           si="Guardar en la despensa"
           no="Descartar"
           onSi={() => {
+            const validos = revision.items.filter((it) => aNumero(it.cantidad) > 0);
             onActualizar((x) => ({
               ...x,
-              despensa: revision.items.reduce((acc, it) => (aNumero(it.cantidad) > 0 ? sumar(acc, it.ing, aNumero(it.cantidad)) : acc), x.despensa),
+              misAlimentos: [...x.misAlimentos, ...validos.flatMap((it) => (it.nuevo && !x.misAlimentos.some((m) => m.id === it.ing) ? [it.nuevo] : []))],
+              despensa: validos.reduce((acc, it) => {
+                const sumado = sumar(acc, it.ing, aNumero(it.cantidad));
+                return it.caduca ? sumado.map((st) => (st.ing === it.ing && !st.caduca ? { ...st, caduca: it.caduca } : st)) : sumado;
+              }, x.despensa),
             }));
             setRevision(null);
           }}
@@ -229,15 +250,15 @@ export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualiza
           <ScrollView style={{ maxHeight: 300 }} contentContainerStyle={{ gap: 8 }}>
             {revision.items.map((it, k) => (
               <View key={it.ing} style={e.fila}>
-                <Text style={[e.nombre, { flex: 1 }]}>{porId(it.ing)?.nombre}</Text>
+                <Text style={[e.nombre, { flex: 1 }]}>{porId(it.ing)?.nombre ?? it.nuevo?.nombre}{it.nuevo ? ' (nuevo)' : ''}</Text>
                 <Campo
-                  accessibilityLabel={`Cantidad comprada de ${porId(it.ing)?.nombre}`}
+                  accessibilityLabel={`Cantidad comprada de ${porId(it.ing)?.nombre ?? it.nuevo?.nombre}`}
                   style={e.cantidad}
                   keyboardType="decimal-pad"
                   value={it.cantidad}
                   onChangeText={(t) => setRevision({ ...revision, items: revision.items.map((y, n) => (n === k ? { ...y, cantidad: t } : y)) })}
                 />
-                <Text style={e.unidad}>{porId(it.ing)?.unidad}</Text>
+                <Text style={e.unidad}>{porId(it.ing)?.unidad ?? it.nuevo?.unidad}</Text>
               </View>
             ))}
           </ScrollView>
@@ -304,12 +325,14 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
   const [origen, setOrigen] = useState(preset);
   const [verPref, setVerPref] = useState(false);
   const [hecha, setHecha] = useState<{ receta: Receta; deshacer: () => void } | null>(null);
+  const [deIA, setDeIA] = useState<Receta | null>(null);
+  const [pensando, setPensando] = useState(false);
 
   const meta = d.perfil ? nutricion(d.perfil) : null;
   const hoy = claveDia();
   const prohibido = prohibidos(d.preferencias);
   const permitidas = activos.filter((x) => !prohibido.has(x));
-  const receta = generarReceta({
+  const plantilla = generarReceta({
     ids: permitidas,
     despensa: d.despensa,
     metaProteina: meta?.proteina ?? null,
@@ -318,8 +341,36 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
     variante,
     raciones,
   });
+  // La receta de la IA se escala si cambias las raciones.
+  const receta: Receta | null = deIA
+    ? {
+        ...deIA,
+        raciones,
+        lineas: deIA.lineas.map((l) => {
+          const pedido = (l.cantidad / deIA.raciones) * raciones;
+          const stock = d.despensa.find((s) => s.ing === l.ing)?.cantidad ?? 0;
+          return { ...l, cantidad: stock > 0 ? Math.min(pedido, stock) : pedido, enStock: stock > 0 };
+        }),
+      }
+    : plantilla;
+
+  const conIA = async (extra?: string) => {
+    setAviso('');
+    setPensando(true);
+    const escritos = texto.split(/,|;|\n|\sy\s/).map((x) => x.trim()).filter(Boolean);
+    const ids = [...new Set([...marcados, ...escritos.flatMap((x) => buscarIngrediente(x)?.id ?? [])])].filter((x) => !prohibido.has(x));
+    const libres = escritos.filter((x) => !buscarIngrediente(x));
+    try {
+      setDeIA(await recetaIA({ d, ids, raciones, prohibido, pedido: [extra, ...libres].filter(Boolean).join(', ') || undefined }));
+      setOrigen(null);
+    } catch (err) {
+      setAviso(textoError(err));
+    }
+    setPensando(false);
+  };
 
   const crear = () => {
+    setDeIA(null);
     const escritos = texto.split(/,|;|\n|\sy\s/).map((x) => x.trim()).filter(Boolean);
     const encontrados = escritos.flatMap((x) => buscarIngrediente(x)?.id ?? []);
     const raros = escritos.filter((x) => !buscarIngrediente(x));
@@ -336,6 +387,7 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
   };
 
   const sugerir = () => {
+    setDeIA(null);
     const v = variante + 1;
     const ids = sugerirIngredientes(d.despensa.filter((s) => !prohibido.has(s.ing)), v);
     setAviso(ids.length ? '' : 'Tu despensa está vacía o no encaja con tus preferencias.');
@@ -383,6 +435,7 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
     setMarcados([]);
     setTexto('');
     setOrigen(null);
+    setDeIA(null);
   };
 
   return (
@@ -399,6 +452,7 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
         <Campo accessibilityLabel="Ingredientes" placeholder="O escribe: pollo, arroz, tomate" value={texto} onChangeText={setTexto} />
         <Pildora texto="Crear receta" onPress={crear} />
         <Pildora texto="Sorpréndeme con mi despensa" tipo="neutro" onPress={sugerir} />
+        {nubeActiva ? <Pildora texto={pensando ? 'La IA está cocinando…' : '✨ Receta con IA'} tipo="neutro" deshabilitado={pensando} onPress={() => conIA()} /> : null}
         {aviso ? <Text style={e.error}>{aviso}</Text> : null}
         <Pildora chica tipo="neutro" texto={verPref ? 'Ocultar alergias y gustos' : 'Alergias y gustos'} onPress={() => setVerPref(!verPref)} />
         {verPref ? <PanelPreferencias pref={d.preferencias} onCambio={(preferencias) => onActualizar((x) => ({ ...x, preferencias }))} /> : null}
@@ -407,7 +461,7 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
       {receta ? (
         <Tarjeta>
           <Text style={e.receta}>{receta.titulo}</Text>
-          <Text style={e.sub}>Con {receta.sabor}</Text>
+          <Text style={e.sub}>{deIA ? `✨ Idea de la IA · ${receta.sabor}` : `Con ${receta.sabor}`}</Text>
           <View style={e.macros}>
             <Macro valor={Math.round(receta.kcal)} texto="kcal" />
             <Macro valor={Math.round(receta.p)} texto="proteína" />
@@ -449,7 +503,12 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
           ))}
 
           <Pildora texto="La hago" onPress={() => cocinar(receta)} />
-          <Pildora texto="Otra idea" tipo="neutro" onPress={() => setVariante(variante + 1)} />
+          <Pildora
+            texto={deIA ? (pensando ? 'Pensando…' : 'Otra idea de la IA') : 'Otra idea'}
+            tipo="neutro"
+            deshabilitado={pensando}
+            onPress={() => (deIA ? conIA(`algo distinto a "${deIA.titulo}"`) : setVariante(variante + 1))}
+          />
           <Text style={e.nota}>
             Al pulsar "La hago" se descuenta de tu despensa y se apunta una ración en tu comida de hoy.
             {receta.raciones > 1 ? ' El resto queda en Sobras.' : ''}

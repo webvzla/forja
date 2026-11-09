@@ -91,7 +91,7 @@ const ej = (nombre: string, series: number, reps: number): Ejercicio => ({
   reps,
 });
 
-const datosIniciales = (): Datos => ({
+export const datosIniciales = (): Datos => ({
   rutinas: [
     {
       id: nuevoId(),

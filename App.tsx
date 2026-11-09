@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { fijarPropios } from './src/alimentos';
-import { Datos, Perfil, Rutina, cargar, cerrarActivo, claveDia, formatoNum, guardar, iniciarActivo, pesoMaximo, ultimaVez } from './src/datos';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { User } from '@supabase/supabase-js';
+import { Datos, Perfil, Rutina, cargar, cerrarActivo, claveDia, datosIniciales, formatoNum, guardar, iniciarActivo, pesoMaximo, ultimaVez } from './src/datos';
+import { EstadoNube, alCambiarEstado, cargarNube, eligioSinCuenta, guardarNube, nubeActiva, sb, usarSinCuenta, usuarioActual } from './src/nube';
+import { Cuenta } from './src/Cuenta';
 import { generarPlan } from './src/reglas';
 import { Coach } from './src/Coach';
 import { Comida } from './src/Comida';
@@ -11,24 +15,86 @@ import { Progreso } from './src/Progreso';
 import { Rutinas } from './src/Rutinas';
 import { Dialogo, c } from './src/ui';
 
+const DUENO = 'mi-gym:dueno';
+
 type Resumen = { minutos: number; series: number; kilos: number; records: string[] };
 
 export default function App() {
   const [datos, setDatos] = useState<Datos | null>(null);
   const [pestana, setPestana] = useState<'coach' | 'rutinas' | 'comida' | 'progreso'>('coach');
   const [resumen, setResumen] = useState<Resumen | null>(null);
+  const [usuario, setUsuario] = useState<User | null>(null);
+  const [pantallaCuenta, setPantallaCuenta] = useState<null | 'entrar' | 'nueva'>(null);
+  const [estadoNube, setEstadoNube] = useState<EstadoNube>('guardado');
+
+  // Al entrar: si la nube tiene datos, mandan; si está vacía, se suben los del móvil
+  // (solo si no eran de otra cuenta).
+  const entrar = async (u: User) => {
+    setPantallaCuenta(null);
+    setUsuario(u);
+    const local = await cargar();
+    const dueno = await AsyncStorage.getItem(DUENO);
+    const nube = await cargarNube(u.id);
+    if (nube === 'error') {
+      setEstadoNube('sin-conexion');
+      setDatos(dueno === u.id ? local : datosIniciales());
+    } else if (nube) {
+      setDatos({ ...datosIniciales(), ...nube, activo: dueno === u.id ? local.activo : null });
+    } else {
+      const base = !dueno || dueno === u.id ? local : datosIniciales();
+      setDatos(base);
+      guardarNube(u.id, base);
+    }
+    await AsyncStorage.setItem(DUENO, u.id);
+    await usarSinCuenta(false);
+  };
+
+  const salir = async () => {
+    await sb?.auth.signOut();
+    await AsyncStorage.removeItem(DUENO);
+    const vacio = datosIniciales();
+    await guardar(vacio);
+    setUsuario(null);
+    setDatos(vacio);
+    setPantallaCuenta('entrar');
+  };
 
   useEffect(() => {
-    cargar().then(setDatos);
+    alCambiarEstado(setEstadoNube);
+    (async () => {
+      const u = nubeActiva ? await usuarioActual() : null;
+      if (u) return entrar(u);
+      const local = await cargar();
+      setDatos(local);
+      if (nubeActiva && !(await eligioSinCuenta())) setPantallaCuenta('entrar');
+    })();
+    const sub = sb?.auth.onAuthStateChange((ev) => {
+      if (ev === 'PASSWORD_RECOVERY') setPantallaCuenta('nueva');
+    });
     if (Platform.OS === 'web' && !__DEV__) {
       navigator.serviceWorker?.register('sw.js').catch(() => {});
       navigator.storage?.persist?.().catch(() => {});
     }
+    return () => sub?.data.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (datos) guardar(datos);
+    if (!datos) return;
+    guardar(datos);
+    if (usuario) guardarNube(usuario.id, datos);
   }, [datos]);
+
+  if (pantallaCuenta)
+    return (
+      <SafeAreaView style={e.raiz}>
+        <StatusBar style="light" />
+        <Cuenta
+          modoInicial={pantallaCuenta}
+          onListo={entrar}
+          onSinCuenta={pantallaCuenta === 'entrar' ? () => { usarSinCuenta(true); setPantallaCuenta(null); } : undefined}
+        />
+      </SafeAreaView>
+    );
 
   if (!datos)
     return (
@@ -103,6 +169,7 @@ export default function App() {
             {pestana === 'coach' ? (
               <Coach
                 datos={datos}
+                cuenta={nubeActiva ? { email: usuario?.email ?? null, estado: estadoNube, onEntrar: () => setPantallaCuenta('entrar'), onSalir: salir } : null}
                 onPerfil={guardarPerfil}
                 onPeso={(kg) =>
                   setDatos({ ...datos, pesos: conPeso(datos, kg), perfil: datos.perfil ? { ...datos.perfil, peso: kg } : null })
