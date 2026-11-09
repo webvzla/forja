@@ -6,7 +6,7 @@ import { alternativas, pesoSugerido } from './reglas';
 import { Campo, Dialogo, Pildora, Tarjeta, avisoFinDescanso, c, prepararSonido } from './ui';
 import { Discos } from './Extras';
 import { aNumero } from './datos';
-import { esConBarra, hablar, hayVoz } from './extras';
+import { esConBarra, hablar, hayVoz } from './calculos';
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 

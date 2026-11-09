@@ -5,7 +5,7 @@ import { ALIMENTOS, nutricion } from './reglas';
 import { Despensa, Menu, Preset, Recetas } from './Cocina';
 import { Campo, Pildora, Tarjeta, Titulo, c } from './ui';
 import { FotoPlato } from './IA';
-import { metaDia, textoMetaDia } from './extras';
+import { metaDia, textoMetaDia } from './calculos';
 import { nubeActiva } from './nube';
 
 type Vista = 'hoy' | 'despensa' | 'recetas' | 'menu';

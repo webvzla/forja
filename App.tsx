@@ -9,7 +9,7 @@ import { EstadoNube, alCambiarEstado, borrarCuenta, cargarNube, eligioSinCuenta,
 import { Cuenta } from './src/Cuenta';
 import { Retos, subirResumen } from './src/Retos';
 import { CompartirSemana, MapaMuscular, Medallas, NuevasMedallas } from './src/Extras';
-import { Medalla, medallas } from './src/extras';
+import { Medalla, medallas } from './src/calculos';
 import { generarPlan, objetivos } from './src/reglas';
 import { Coach } from './src/Coach';
 import { Comida } from './src/Comida';

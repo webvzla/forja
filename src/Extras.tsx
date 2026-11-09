@@ -4,7 +4,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Rect } from 'react-native-svg';
 
 import { Datos, claveDia, formatoNum, pesoMaximo } from './datos';
-import { Medalla, Musculo, NOMBRE_MUSCULO, discosPorLado, medallas, musculosSemana } from './extras';
+import { Medalla, Musculo, NOMBRE_MUSCULO, discosPorLado, medallas, musculosSemana } from './calculos';
 import { inicioSemana, nutricion } from './reglas';
 import { Campo, Dialogo, Pildora, Tarjeta, c } from './ui';
 import { compartirArchivo } from './web';

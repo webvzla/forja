@@ -9,7 +9,7 @@ import { NOMBRE_DIA, diaHoy, nutricion } from './reglas';
 import { compartirTexto, elegirArchivo, leerTicket } from './web';
 import { LineaTicket, leerTicketIA, recetaIA, textoError } from './IA';
 import { nubeActiva, usuarioActual } from './nube';
-import { metaDia, rankingProteina } from './extras';
+import { metaDia, rankingProteina } from './calculos';
 import { Campo, Dialogo, Pildora, Tarjeta, c } from './ui';
 
 type Actualizar = (f: (d: Datos) => Datos) => void;

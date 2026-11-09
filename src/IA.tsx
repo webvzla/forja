@@ -7,7 +7,7 @@ import { Ingrediente, Linea, Receta, Tipo, Unidad, crearAlimento, macrosDe, porI
 import { Datos, Stock, claveDia, nuevoId } from './datos';
 import { ErrorIA, pedirIA, pedirJSON, textoErrorIA } from './nube';
 import { nutricion, textoObjetivo } from './reglas';
-import { metaDia } from './extras';
+import { metaDia } from './calculos';
 import { Campo, Pildora, Tarjeta, c } from './ui';
 import { elegirArchivo } from './web';
 
