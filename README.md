@@ -1,4 +1,4 @@
-# Mi Gym
+# Forja · Gym y Despensa
 
 App de gimnasio y cocina (Expo / React Native, publicada como web instalable): coach con plan semanal, entrenos con subida de pesos, despensa con escáner de tickets, recetas que descuentan del stock, menú semanal, agua, medidas y progreso.
 

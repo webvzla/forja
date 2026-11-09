@@ -1,4 +1,4 @@
-// Mi Gym · servidor de IA (Supabase Edge Function "ai")
+// Forja · servidor de IA (Supabase Edge Function "ai")
 // Guarda la clave de Gemini (secreto GEMINI_API_KEY) y nunca la envía al navegador.
 // Solo responde a usuarios con sesión iniciada y con un límite de usos por día.
 

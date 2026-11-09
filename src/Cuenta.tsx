@@ -62,7 +62,7 @@ export function Cuenta(p: { modoInicial?: Modo; onListo: (u: User) => void; onSi
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={e.pagina} keyboardShouldPersistTaps="handled">
-        <Text style={e.marca}>Mi Gym</Text>
+        <Text style={e.marca}>Forja</Text>
         <Text style={e.lema}>Tu entreno, tu despensa y tu proteína en una sola app.</Text>
         <Tarjeta>
           <Text style={e.titulo}>{titulo}</Text>

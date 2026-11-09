@@ -159,7 +159,7 @@ export function ChatCoach({ d }: { d: Datos }) {
     };
     try {
       const t = await pedirIA(
-        `Eres el coach personal de la app Mi Gym: entrenador y nutricionista práctico. Responde en español, en menos de 120 palabras, concreto y accionable, sin markdown ni listas largas. Si es un tema médico o una lesión, recomienda ver a un profesional.
+        `Eres el coach personal de la app Forja: entrenador y nutricionista práctico. Responde en español, en menos de 120 palabras, concreto y accionable, sin markdown ni listas largas. Si es un tema médico o una lesión, recomienda ver a un profesional.
 Datos del usuario: ${JSON.stringify(contexto)}
 Pregunta: ${q}`,
       );

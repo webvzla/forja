@@ -1,4 +1,4 @@
--- Mi Gym · base de datos
+-- Forja · base de datos
 -- Pega todo esto en Supabase → SQL Editor → New query → Run.
 
 -- Datos de cada usuario (una fila por persona, todo en un JSON)

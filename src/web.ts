@@ -89,12 +89,12 @@ export async function compartirTexto(texto: string): Promise<'compartido' | 'cop
 }
 
 export async function exportarCopia(contenido: string) {
-  const nombre = `mi-gym-${new Date().toISOString().slice(0, 10)}.json`;
+  const nombre = `forja-${new Date().toISOString().slice(0, 10)}.json`;
   const archivo = new File([contenido], nombre, { type: 'application/json' });
   const n = navigator as any;
   if (n.canShare?.({ files: [archivo] })) {
     try {
-      await n.share({ files: [archivo], title: 'Copia de Mi Gym' });
+      await n.share({ files: [archivo], title: 'Copia de Forja' });
       return;
     } catch (e: any) {
       if (e?.name === 'AbortError') return;

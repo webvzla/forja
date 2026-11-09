@@ -325,7 +325,7 @@ export function Coach(p: {
                   if (!Array.isArray(x.rutinas) || !Array.isArray(x.sesiones)) throw new Error('no válida');
                   setCopia(x);
                 } catch {
-                  setErrorCopia('Ese archivo no es una copia de Mi Gym.');
+                  setErrorCopia('Ese archivo no es una copia de Forja.');
                 }
               }}
             />
