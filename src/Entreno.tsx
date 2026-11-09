@@ -131,8 +131,12 @@ export function Entreno(p: {
       <ScrollView contentContainerStyle={e.pagina} keyboardShouldPersistTaps="handled">
         {a.descarga ? (
           <Tarjeta>
-            <Text style={e.ejercicio}>Semana de descarga</Text>
-            <Text style={e.sub}>Una serie menos y cerca del 85 % de tu peso, para recuperarte y volver con más fuerza.</Text>
+            <Text style={e.ejercicio}>{a.ligero ? 'Día ligero' : 'Semana de descarga'}</Text>
+            <Text style={e.sub}>
+              {a.ligero
+                ? 'Hoy no estás al 100 %: una serie menos y cerca del 85 % de tu peso. Entrenar suave también suma, y no cuenta para bajar tus marcas.'
+                : 'Una serie menos y cerca del 85 % de tu peso, para recuperarte y volver con más fuerza.'}
+            </Text>
           </Tarjeta>
         ) : null}
         {hechas === 0 ? (

@@ -40,6 +40,7 @@ export type Activo = {
   inicio: number;
   finDescanso: number | null;
   descarga?: boolean;
+  ligero?: boolean; // día flojo (dormiste mal / poca energía): se entrena como descarga
   ejercicios: EjercicioActivo[];
 };
 
@@ -69,7 +70,10 @@ export type Datos = {
   menu: DiaMenu[] | null;
   agua: Record<string, number>; // ml por día
   medidas: Record<string, { fecha: number; max: number }[]>; // cm por zona
+  animo: Record<string, { sueno: Nivel3; energia: Nivel3 }>; // cómo te sientes, por día
 };
+
+export type Nivel3 = 0 | 1 | 2; // 0 mal · 1 regular · 2 bien
 
 export type Sobra = { id: string; titulo: string; raciones: number; proteina: number; kcal: number; fecha: number };
 export type Stock = { ing: string; cantidad: number; caduca?: string };
@@ -145,6 +149,7 @@ export const datosIniciales = (): Datos => ({
   menu: null,
   agua: {},
   medidas: {},
+  animo: {},
 });
 
 export async function cargar(): Promise<Datos> {
@@ -201,12 +206,14 @@ export const aNumero = (s: string) => {
 
 export const formatoNum = (n: number) => String(Math.round(n * 100) / 100).replace('.', ',');
 
-export function iniciarActivo(rutina: Rutina, sesiones: Sesion[], descarga = false): Activo {
+export function iniciarActivo(rutina: Rutina, sesiones: Sesion[], semanaDescarga = false, ligero = false): Activo {
+  const descarga = semanaDescarga || ligero;
   return {
     rutinaNombre: rutina.nombre,
     inicio: Date.now(),
     finDescanso: null,
     descarga,
+    ligero: ligero && !semanaDescarga,
     ejercicios: rutina.ejercicios.map((e) => {
       const n = Math.max(ultimaVez(sesiones, e.nombre).length, e.series);
       return {

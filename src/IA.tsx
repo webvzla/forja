@@ -8,6 +8,7 @@ import { Datos, Stock, claveDia, nuevoId } from './datos';
 import { ErrorIA, pedirIA, pedirJSON, textoErrorIA } from './nube';
 import { nutricion } from './reglas';
 import { Campo, Pildora, Tarjeta, c } from './ui';
+import { elegirArchivo } from './web';
 
 const TIPOS: Tipo[] = ['proteina', 'legumbre', 'lacteo', 'suplemento', 'carbo', 'verdura', 'fruta', 'grasa'];
 const UNIDADES: Unidad[] = ['g', 'ml', 'ud'];
@@ -198,3 +199,71 @@ const e = StyleSheet.create({
   respuesta: { backgroundColor: c.campo, borderRadius: 14, padding: 12 },
   texto: { color: c.texto, fontSize: 16, lineHeight: 23 },
 });
+
+// ---------- Foto del plato ----------
+export type Plato = { nombre: string; proteina: number; kcal: number; detalle: string };
+
+export async function platoIA(file: File): Promise<Plato> {
+  const imagen = await fotoParaIA(file);
+  const r = await pedirJSON<{ nombre: string; proteina: number; kcal: number; detalle?: string; comida?: boolean }>(
+    `Mira esta foto de un plato o comida. Estima de forma realista lo que hay y sus cantidades aproximadas por el tamaño (platos de restaurante suelen ser raciones grandes).
+Formato: {"comida": true si es comida (false si no), "nombre": "nombre corto del plato en español", "proteina": gramos de proteína totales, "kcal": calorías totales, "detalle": "lo que ves y las cantidades estimadas, en una frase corta"}`,
+    { imagen },
+  );
+  if (r.comida === false) throw 'no-comida';
+  return { nombre: String(r.nombre || 'Plato'), proteina: Math.round(num(r.proteina)), kcal: Math.round(num(r.kcal)), detalle: String(r.detalle || '') };
+}
+
+export function FotoPlato({ onAnadir }: { onAnadir: (x: { nombre: string; proteina: number; kcal: number }) => void }) {
+  const [estado, setEstado] = useState<'listo' | 'leyendo'>('listo');
+  const [plato, setPlato] = useState<{ nombre: string; proteina: string; kcal: string; detalle: string } | null>(null);
+  const [error, setError] = useState('');
+
+  const foto = async () => {
+    setError('');
+    const f = await elegirArchivo('image/*');
+    if (!f) return;
+    setEstado('leyendo');
+    try {
+      const r = await platoIA(f);
+      setPlato({ nombre: r.nombre, proteina: String(r.proteina), kcal: String(r.kcal), detalle: r.detalle });
+    } catch (e) {
+      setError(e === 'no-comida' ? 'No veo comida en esa foto. Prueba con el plato entero y desde arriba.' : textoError(e));
+    }
+    setEstado('listo');
+  };
+
+  return (
+    <Tarjeta>
+      <Text style={e.titulo}>📸 Foto del plato</Text>
+      <Text style={e.sub}>¿Comes fuera? Haz una foto y la IA estima calorías y proteína. Luego puedes corregirlo.</Text>
+      {plato ? (
+        <>
+          {plato.detalle ? <Text style={e.sub}>{plato.detalle}</Text> : null}
+          <Campo accessibilityLabel="Nombre del plato" value={plato.nombre} onChangeText={(nombre) => setPlato({ ...plato, nombre })} />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Campo accessibilityLabel="Proteína del plato" style={{ flex: 1 }} keyboardType="decimal-pad" value={plato.proteina} onChangeText={(proteina) => setPlato({ ...plato, proteina })} />
+            <Campo accessibilityLabel="Calorías del plato" style={{ flex: 1 }} keyboardType="number-pad" value={plato.kcal} onChangeText={(kcal) => setPlato({ ...plato, kcal })} />
+          </View>
+          <Text style={e.sub}>Proteína (g) · Calorías. Es una estimación: corrígela si sabes más.</Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flex: 1 }}><Pildora chica tipo="neutro" texto="Descartar" onPress={() => setPlato(null)} /></View>
+            <View style={{ flex: 1 }}>
+              <Pildora
+                chica
+                texto="Apuntar"
+                onPress={() => {
+                  onAnadir({ nombre: plato.nombre.trim() || 'Plato', proteina: num(plato.proteina), kcal: num(plato.kcal) });
+                  setPlato(null);
+                }}
+              />
+            </View>
+          </View>
+        </>
+      ) : (
+        <Pildora chica texto={estado === 'leyendo' ? 'Mirando tu plato…' : 'Hacer foto del plato'} deshabilitado={estado === 'leyendo'} onPress={foto} />
+      )}
+      {error ? <Text style={{ color: c.rojo, fontSize: 15, lineHeight: 21 }}>{error}</Text> : null}
+    </Tarjeta>
+  );
+}

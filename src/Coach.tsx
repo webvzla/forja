@@ -3,6 +3,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { elegirArchivo, exportarCopia } from './web';
 import { ChatCoach } from './IA';
 import type { EstadoNube } from './nube';
+import { EnlacePrivacidad } from './Privacidad';
 import { Datos, Enfasis, Equipo, Nivel, Objetivo, Perfil, Rutina, aNumero, formatoNum, zonas } from './datos';
 import { NOMBRE_DIA, ajustarPlan, diaHoy, inicioSemana, nutricion, revisar } from './reglas';
 import { Grafica } from './Progreso';
@@ -159,9 +160,10 @@ export function Coach(p: {
   onRestaurar: (copia: Datos) => void;
   onDescarga: (hasta: number | null) => void;
   onMedida: (zona: string, cm: number) => void;
-  cuenta?: { email: string | null; estado: EstadoNube; onEntrar: () => void; onSalir: () => void } | null;
+  cuenta?: { email: string | null; estado: EstadoNube; onEntrar: () => void; onSalir: () => void; onBorrar: () => Promise<boolean> } | null;
 }) {
   const [copia, setCopia] = useState<Datos | null>(null);
+  const [borrar, setBorrar] = useState<'no' | 'preguntar' | 'borrando' | 'error'>('no');
   const [errorCopia, setErrorCopia] = useState('');
   const [zona, setZona] = useState('Cintura');
   const [medida, setMedida] = useState('');
@@ -325,6 +327,8 @@ export function Coach(p: {
                   {p.cuenta.estado === 'guardado' ? '✓ Datos guardados en la nube' : p.cuenta.estado === 'guardando' ? 'Guardando…' : 'Sin conexión: se guarda en el móvil y se sube al volver'}
                 </Text>
                 <Pildora chica tipo="neutro" texto="Cerrar sesión" onPress={p.cuenta.onSalir} />
+                <Pildora chica tipo="peligro" texto="Borrar mi cuenta" onPress={() => setBorrar('preguntar')} />
+                {borrar === 'error' ? <Text style={{ color: c.rojo, fontSize: 15 }}>No se pudo borrar. Revisa tu conexión e inténtalo de nuevo.</Text> : null}
               </>
             ) : (
               <>
@@ -332,6 +336,7 @@ export function Coach(p: {
                 <Pildora chica texto="Crear cuenta o entrar" onPress={p.cuenta.onEntrar} />
               </>
             )}
+            <EnlacePrivacidad />
           </Tarjeta>
         </>
       ) : null}
@@ -362,6 +367,22 @@ export function Coach(p: {
             {errorCopia ? <Text style={{ color: c.rojo, fontSize: 15 }}>{errorCopia}</Text> : null}
           </Tarjeta>
         </>
+      ) : null}
+
+      {borrar === 'preguntar' || borrar === 'borrando' ? (
+        <Dialogo
+          titulo="¿Borrar tu cuenta?"
+          mensaje="Se borran para siempre tu cuenta y todos tus datos en la nube: entrenos, comidas, despensa y retos. No se puede deshacer. Si quieres conservarlos, guarda antes una copia."
+          si={borrar === 'borrando' ? 'Borrando…' : 'Sí, borrar todo'}
+          peligro
+          no="Cancelar"
+          onSi={async () => {
+            if (borrar === 'borrando') return;
+            setBorrar('borrando');
+            setBorrar((await p.cuenta?.onBorrar()) ? 'no' : 'error');
+          }}
+          onNo={() => setBorrar('no')}
+        />
       ) : null}
 
       {copia ? (

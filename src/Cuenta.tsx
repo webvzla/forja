@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js';
 
 import { mensajeError, sb } from './nube';
 import { Campo, Pildora, Tarjeta, c } from './ui';
+import { EnlacePrivacidad } from './Privacidad';
 
 type Modo = 'entrar' | 'registro' | 'olvido' | 'nueva';
 
@@ -103,6 +104,7 @@ export function Cuenta(p: { modoInicial?: Modo; onListo: (u: User) => void; onSi
         </Tarjeta>
         <Text style={e.nota}>Con cuenta, tus datos se guardan en la nube (los ves en cualquier móvil) y puedes usar la IA: leer tickets, recetas y preguntar al coach. Solo tú puedes ver tus datos.</Text>
         {p.onSinCuenta ? <Pildora chica tipo="neutro" texto="Usar sin cuenta (solo en este móvil)" onPress={p.onSinCuenta} /> : null}
+        <EnlacePrivacidad />
       </ScrollView>
     </KeyboardAvoidingView>
   );

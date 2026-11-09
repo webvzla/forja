@@ -361,7 +361,8 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
     const ids = [...new Set([...marcados, ...escritos.flatMap((x) => buscarIngrediente(x)?.id ?? [])])].filter((x) => !prohibido.has(x));
     const libres = escritos.filter((x) => !buscarIngrediente(x));
     try {
-      setDeIA(await recetaIA({ d, ids, raciones, prohibido, pedido: [extra, ...libres].filter(Boolean).join(', ') || undefined }));
+      const taper = raciones >= 4 ? 'receta de meal prep que aguante bien 4 días en la nevera y se pueda recalentar (nada de lechuga ni fritos)' : '';
+      setDeIA(await recetaIA({ d, ids, raciones, prohibido, pedido: [taper, extra, ...libres].filter(Boolean).join(', ') || undefined }));
       setOrigen(null);
     } catch (err) {
       setAviso(textoError(err));
@@ -452,6 +453,12 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
         <Campo accessibilityLabel="Ingredientes" placeholder="O escribe: pollo, arroz, tomate" value={texto} onChangeText={setTexto} />
         <Pildora texto="Crear receta" onPress={crear} />
         <Pildora texto="Sorpréndeme con mi despensa" tipo="neutro" onPress={sugerir} />
+        <Pildora
+          chica
+          tipo="neutro"
+          texto={raciones >= 4 ? '🥡 Modo táper activado (4 raciones)' : '🥡 Modo táper: cocinar para 4 días'}
+          onPress={() => setRaciones(raciones >= 4 ? 1 : 4)}
+        />
         {nubeActiva ? <Pildora texto={pensando ? 'La IA está cocinando…' : '✨ Receta con IA'} tipo="neutro" deshabilitado={pensando} onPress={() => conIA()} /> : null}
         {aviso ? <Text style={e.error}>{aviso}</Text> : null}
         <Pildora chica tipo="neutro" texto={verPref ? 'Ocultar alergias y gustos' : 'Alergias y gustos'} onPress={() => setVerPref(!verPref)} />
@@ -473,7 +480,7 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
 
           <View style={e.fila}>
             <Text style={[e.nombre, { flex: 1 }]}>Raciones</Text>
-            {[1, 2, 3].map((n) => (
+            {[1, 2, 3, 4, 5].map((n) => (
               <Pressable
                 key={n}
                 accessibilityRole="button"
@@ -486,6 +493,10 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
               </Pressable>
             ))}
           </View>
+
+          {raciones >= 4 ? (
+            <Text style={e.sub}>🥡 Modo táper: cocinas hoy y quedan {raciones - 1} tápers en Sobras. Aguantan unos 4 días en la nevera (o congélalos).</Text>
+          ) : null}
 
           <Text style={e.titulo}>Ingredientes</Text>
           {receta.lineas.map((l) => (

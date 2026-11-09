@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 import { Sesion, formatoNum, historial, nombresEjercicios, pesoMaximo } from './datos';
@@ -47,7 +47,7 @@ export function Grafica({ puntos }: { puntos: { fecha: number; max: number }[] }
   );
 }
 
-export function Progreso(p: { sesiones: Sesion[]; onBorrar: (id: string) => void }) {
+export function Progreso(p: { sesiones: Sesion[]; onBorrar: (id: string) => void; arriba?: ReactNode }) {
   const nombres = nombresEjercicios(p.sesiones);
   const [elegido, setElegido] = useState<string | null>(null);
   const [borrar, setBorrar] = useState<Sesion | null>(null);
@@ -55,13 +55,14 @@ export function Progreso(p: { sesiones: Sesion[]; onBorrar: (id: string) => void
 
   if (!actual)
     return (
-      <View style={[e.pagina, { flex: 1 }]}>
+      <ScrollView contentContainerStyle={e.pagina}>
         <Titulo>Progreso</Titulo>
+        {p.arriba}
         <Tarjeta>
           <Text style={e.vacioTitulo}>Aún no hay entrenos</Text>
           <Text style={e.sub}>Termina tu primera rutina y aquí verás cómo sube tu peso en cada ejercicio.</Text>
         </Tarjeta>
-      </View>
+      </ScrollView>
     );
 
   const puntos = historial(p.sesiones, actual);
@@ -72,6 +73,7 @@ export function Progreso(p: { sesiones: Sesion[]; onBorrar: (id: string) => void
   return (
     <ScrollView contentContainerStyle={e.pagina}>
       <Titulo>Progreso</Titulo>
+      {p.arriba}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         {nombres.map((n) => (
           <Pressable

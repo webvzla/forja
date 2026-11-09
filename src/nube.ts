@@ -39,6 +39,14 @@ export function mensajeError(e: unknown) {
   return 'No se pudo completar. Revisa tu conexión e inténtalo de nuevo.';
 }
 
+export async function borrarCuenta(): Promise<boolean> {
+  if (!sb) return false;
+  const { error } = await sb.rpc('borrar_mi_cuenta');
+  if (error) return false;
+  await sb.auth.signOut();
+  return true;
+}
+
 // ---------- Datos ----------
 export async function cargarNube(uid: string): Promise<Datos | null | 'error'> {
   if (!sb) return 'error';

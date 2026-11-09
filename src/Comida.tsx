@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Comida as ItemComida, Datos, aNumero, claveDia, nuevoId } from './datos';
 import { ALIMENTOS, nutricion } from './reglas';
 import { Despensa, Menu, Preset, Recetas } from './Cocina';
 import { Campo, Pildora, Tarjeta, Titulo, c } from './ui';
+import { FotoPlato } from './IA';
+import { nubeActiva } from './nube';
 
 type Vista = 'hoy' | 'despensa' | 'recetas' | 'menu';
 
@@ -143,6 +145,8 @@ function Hoy(p: {
         </View>
       </Tarjeta>
 
+      {nubeActiva && Platform.OS === 'web' ? <FotoPlato onAnadir={anadir} /> : null}
+
       {hace === 0 && d.sobras.length ? <Text style={e.seccion}>Sobras</Text> : null}
       {hace === 0
         ? d.sobras.map((s) => (
@@ -150,6 +154,14 @@ function Hoy(p: {
               <View style={{ flex: 1 }}>
                 <Text style={e.alimentoNombre}>{s.titulo}</Text>
                 <Text style={e.sub}>{s.raciones} {s.raciones === 1 ? 'ración' : 'raciones'} · {Math.round(s.proteina)} g · {Math.round(s.kcal)} kcal</Text>
+                {(() => {
+                  const dias = Math.floor((Date.now() - s.fecha) / 86400000);
+                  return dias >= 4 ? (
+                    <Text style={{ color: c.rojo, fontSize: 14, fontWeight: '700' }}>Hecho hace {dias} días: si no lo congelaste, mejor tíralo</Text>
+                  ) : dias === 3 ? (
+                    <Text style={{ color: c.oro, fontSize: 14, fontWeight: '700' }}>Hecho hace 3 días: cómelo hoy</Text>
+                  ) : null;
+                })()}
               </View>
               <Pildora
                 chica
