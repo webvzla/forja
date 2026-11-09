@@ -4,6 +4,7 @@ import { elegirArchivo, exportarCopia } from './web';
 import { ChatCoach } from './IA';
 import type { EstadoNube } from './nube';
 import { EnlacePrivacidad } from './Privacidad';
+import { Instalar } from './Instalar';
 import { Datos, Enfasis, Equipo, Nivel, Objetivo, Perfil, Rutina, aNumero, formatoNum, zonas } from './datos';
 import { NOMBRE_DIA, ajustarPlan, diaHoy, inicioSemana, nutricion, revisar, TEXTO_OBJETIVO, adaptarRutina, incompatibles, objetivos, textoObjetivo } from './reglas';
 import { Grafica } from './Progreso';
@@ -228,6 +229,7 @@ export function Coach(p: {
   return (
     <ScrollView contentContainerStyle={e.pagina} keyboardShouldPersistTaps="handled">
       <Titulo>Tu coach</Titulo>
+      <Instalar />
       <Tarjeta>
         <Text style={e.grande}>{textoObjetivo(perfil)}</Text>
         <Text style={e.sub}>{perfil.dias} días por semana · {formatoNum(perfil.peso)} kg · IMC {formatoNum(Math.round(n.imc * 10) / 10)}</Text>

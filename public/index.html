@@ -16,6 +16,11 @@
       body { overflow: hidden; }
       #root { display: flex; height: 100%; flex: 1; }
     </style>
+    <meta name="description" content="Rutinas de gym a tu medida, despensa con escáner de tickets, recetas con lo que tienes y retos con amigos." />
+    <script>
+      // Chrome avisa una sola vez de que la app se puede instalar: se guarda para el botón "Instalar".
+      window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instalar = e; window.dispatchEvent(new Event('forja-instalable')); });
+    </script>
   </head>
   <body>
     <div id="root"></div>

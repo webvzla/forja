@@ -17,7 +17,7 @@ const archivos = lista(dist)
 
 const huella = createHash('sha256');
 for (const f of archivos) huella.update(f).update(readFileSync(join(dist, f)));
-const version = `mi-gym-${huella.digest('hex').slice(0, 12)}`;
+const version = `forja-${huella.digest('hex').slice(0, 12)}`;
 
 const sw = `const CACHE = ${JSON.stringify(version)};
 const ARCHIVOS = ${JSON.stringify(['./', ...archivos.map((f) => `./${f}`)])};
@@ -29,7 +29,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((claves) => Promise.all(claves.filter((k) => k.startsWith('mi-gym-') && k !== CACHE).map((k) => caches.delete(k))))
+      .then((claves) => Promise.all(claves.filter((k) => k.startsWith('forja-') && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });

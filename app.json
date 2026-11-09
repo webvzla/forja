@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Forja",
-    "slug": "mi-gym",
+    "slug": "forja",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,7 +25,7 @@
       "favicon": "./assets/favicon.png"
     },
     "experiments": {
-      "baseUrl": "/mi-gym"
+      "baseUrl": "/forja"
     }
   }
 }

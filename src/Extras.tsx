@@ -184,7 +184,7 @@ async function dibujarResumen(d: Datos): Promise<Blob> {
   if (s.records.length) x.fillText(`⭐ ${s.records.slice(0, 2).join(' · ')}`.slice(0, 52), 80, 1190);
   x.fillStyle = c.oro;
   x.font = fuente(800, 34);
-  x.fillText('Entreno + cocina en una app · webvzla.github.io/mi-gym', 80, 1270);
+  x.fillText('Entreno + cocina en una app · webvzla.github.io/forja', 80, 1270);
   return new Promise((ok) => cv.toBlob((b) => ok(b!), 'image/png'));
 }
 
