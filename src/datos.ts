@@ -27,7 +27,7 @@ export type Perfil = {
   descargaHasta?: number | null;
   nivel: Nivel;
   equipo: Equipo;
-  enfasis: Enfasis;
+  enfasis: Enfasis | Enfasis[]; // antes era una sola zona; ahora hasta 3
   ajusteKcal: number;
   ultimaRevision: number | null;
 };
@@ -74,6 +74,10 @@ export type Datos = {
 export type Sobra = { id: string; titulo: string; raciones: number; proteina: number; kcal: number; fecha: number };
 export type Stock = { ing: string; cantidad: number; caduca?: string };
 export type RecetaHecha = { id: string; titulo: string; ids: string[]; variante: number; fecha: number };
+
+// Zonas a priorizar (acepta el formato antiguo de una sola zona).
+export const zonas = (p: { enfasis?: Enfasis | Enfasis[] } | null | undefined): Enfasis[] =>
+  (Array.isArray(p?.enfasis) ? p!.enfasis : p?.enfasis ? [p.enfasis] : []).filter((z) => z !== 'ninguno');
 
 export function claveDia(t = Date.now()) {
   const d = new Date(t);

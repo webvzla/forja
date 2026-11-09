@@ -12,6 +12,7 @@ import {
   nuevoId,
   pesoMaximo,
   ultimaVez,
+  zonas,
 } from './datos';
 
 type Patron =
@@ -156,7 +157,8 @@ export function generarPlan(perfil: Perfil): Rutina[] {
     const usados = new Set<string>();
     const ejercicios: Ejercicio[] = [];
     // Abdomen: dos ejercicios de core todos los días (aunque sea día de torso).
-    const patrones = perfil.enfasis === 'abdomen' ? [...plantilla.filter((x) => x !== 'core'), 'core', 'core'] as Patron[] : plantilla;
+    const prioridad = zonas(perfil);
+    const patrones = prioridad.includes('abdomen') ? [...plantilla.filter((x) => x !== 'core'), 'core', 'core'] as Patron[] : plantilla;
     for (const p of patrones) {
       const libres = opciones(p, perfil).filter((x) => !usados.has(x.n));
       if (!libres.length) continue;
@@ -164,7 +166,7 @@ export function generarPlan(perfil: Perfil): Rutina[] {
       usados.add(item.n);
       const acc = ACCESORIOS.includes(p);
       const base = perfil.nivel === 'principiante' || acc ? 3 : 4;
-      const extra = ENFASIS[perfil.enfasis].includes(p) ? 1 : 0;
+      const extra = prioridad.some((z) => ENFASIS[z].includes(p)) ? 1 : 0;
       // Sin peso, pocas repeticiones no sirven: el esfuerzo llega con más repeticiones y menos descanso.
       const enCasa = perfil.equipo === 'casa' && p !== 'core' && p !== 'gemelos';
       // En las planchas las repeticiones son segundos aguantando.

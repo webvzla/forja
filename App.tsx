@@ -4,7 +4,7 @@ import { ActivityIndicator, Platform, Pressable, SafeAreaView, StyleSheet, Text,
 import { fijarPropios } from './src/alimentos';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { User } from '@supabase/supabase-js';
-import { Datos, Perfil, Rutina, cargar, cerrarActivo, claveDia, datosIniciales, formatoNum, guardar, iniciarActivo, pesoMaximo, ultimaVez } from './src/datos';
+import { Datos, Perfil, Rutina, cargar, cerrarActivo, claveDia, datosIniciales, formatoNum, guardar, iniciarActivo, pesoMaximo, ultimaVez, zonas } from './src/datos';
 import { EstadoNube, alCambiarEstado, cargarNube, eligioSinCuenta, guardarNube, nubeActiva, sb, usarSinCuenta, usuarioActual } from './src/nube';
 import { Cuenta } from './src/Cuenta';
 import { generarPlan } from './src/reglas';
@@ -113,7 +113,7 @@ export default function App() {
   const guardarPerfil = (x: Perfil) => {
     const a = datos.perfil;
     const rehacer =
-      !a || a.objetivo !== x.objetivo || [...(a.diasSemana ?? [])].sort().join() !== [...x.diasSemana].sort().join() || a.nivel !== x.nivel || a.equipo !== x.equipo || a.enfasis !== x.enfasis;
+      !a || a.objetivo !== x.objetivo || [...(a.diasSemana ?? [])].sort().join() !== [...x.diasSemana].sort().join() || a.nivel !== x.nivel || a.equipo !== x.equipo || zonas(a).sort().join() !== zonas(x).sort().join();
     setDatos({
       ...datos,
       perfil: x,

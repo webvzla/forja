@@ -3,7 +3,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { elegirArchivo, exportarCopia } from './web';
 import { ChatCoach } from './IA';
 import type { EstadoNube } from './nube';
-import { Datos, Enfasis, Equipo, Nivel, Objetivo, Perfil, Rutina, aNumero, formatoNum } from './datos';
+import { Datos, Enfasis, Equipo, Nivel, Objetivo, Perfil, Rutina, aNumero, formatoNum, zonas } from './datos';
 import { NOMBRE_DIA, ajustarPlan, diaHoy, inicioSemana, nutricion, revisar } from './reglas';
 import { Grafica } from './Progreso';
 import { Campo, Dialogo, Pildora, Tarjeta, Titulo, c } from './ui';
@@ -35,6 +35,8 @@ function Opciones<T extends string | number>(p: {
   );
 }
 
+const ZONAS: [Enfasis, string][] = [['ninguno', 'Ninguna'], ['pecho', 'Pecho'], ['espalda', 'Espalda'], ['pierna', 'Pierna'], ['gluteo', 'Glúteo'], ['brazos', 'Brazos'], ['abdomen', 'Abdomen']];
+
 const TEXTO_OBJETIVO: Record<Objetivo, string> = {
   grasa: 'Perder grasa',
   musculo: 'Ganar músculo',
@@ -52,7 +54,8 @@ function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void;
   const [diasSemana, setDiasSemana] = useState<number[]>(i?.diasSemana ?? [0, 1, 3, 4]);
   const [nivel, setNivel] = useState<Nivel>(i?.nivel ?? 'principiante');
   const [equipo, setEquipo] = useState<Equipo>(i?.equipo ?? 'gym');
-  const [enfasis, setEnfasis] = useState<Enfasis>(i?.enfasis ?? 'ninguno');
+  const [enfasis, setEnfasis] = useState<Enfasis[]>(zonas(i));
+  const [avisoZonas, setAvisoZonas] = useState('');
   const [error, setError] = useState('');
 
   const guardar = () => {
@@ -104,8 +107,34 @@ function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void;
       </View>
       <Opciones titulo="Experiencia" valor={nivel} onCambio={setNivel} opciones={[['principiante', 'Principiante'], ['intermedio', 'Intermedio'], ['avanzado', 'Avanzado']]} />
       <Opciones titulo="¿Dónde entrenas?" valor={equipo} onCambio={setEquipo} opciones={[['gym', 'Gimnasio'], ['mancuernas', 'Solo mancuernas'], ['casa', 'En casa, sin material']]} />
-      <Opciones titulo="Zona que quieres priorizar" valor={enfasis} onCambio={setEnfasis} opciones={[['ninguno', 'Ninguna'], ['pecho', 'Pecho'], ['espalda', 'Espalda'], ['pierna', 'Pierna'], ['gluteo', 'Glúteo'], ['brazos', 'Brazos'], ['abdomen', 'Abdomen']]} />
-      {enfasis === 'abdomen' ? <Text style={e.sub}>Añado dos ejercicios de abdomen cada día. Para que se marque, lo que más cuenta es bajar grasa: la comida pesa más que los abdominales.</Text> : null}
+      <View style={{ gap: 8 }}>
+        <Text style={e.etiqueta}>Zonas que quieres priorizar (hasta 3)</Text>
+        <View style={e.chips}>
+          {ZONAS.map(([z, texto]) => {
+            const on = z === 'ninguno' ? !enfasis.length : enfasis.includes(z);
+            return (
+              <Pressable
+                key={z}
+                accessibilityRole="button"
+                accessibilityLabel={`Priorizar ${texto}`}
+                accessibilityState={{ selected: on }}
+                onPress={() => {
+                  setAvisoZonas('');
+                  if (z === 'ninguno') return setEnfasis([]);
+                  if (on) return setEnfasis(enfasis.filter((x) => x !== z));
+                  if (enfasis.length >= 3) return setAvisoZonas('Máximo 3. Si priorizas todo, no priorizas nada: el plan normal ya trabaja todo el cuerpo por igual.');
+                  setEnfasis([...enfasis, z]);
+                }}
+                style={[e.chip, on && { backgroundColor: c.oro }]}
+              >
+                <Text style={[e.chipTexto, on && { color: c.sobreOro }]}>{texto}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {avisoZonas ? <Text style={{ color: c.oro, fontSize: 15, lineHeight: 21 }}>{avisoZonas}</Text> : null}
+        {enfasis.length ? <Text style={e.sub}>Esas zonas llevan una serie más.{enfasis.includes('abdomen') ? ' Abdomen: dos ejercicios cada día. Para que se marque, lo que más cuenta es bajar grasa: la comida pesa más que los abdominales.' : ''}</Text> : null}
+      </View>
       {error ? <Text style={{ color: c.rojo, fontSize: 15 }}>{error}</Text> : null}
       {i ? <Text style={e.sub}>Si cambias objetivo, días, experiencia, lugar o zona, se rehacen las rutinas del coach.</Text> : null}
       <Pildora texto={i ? 'Guardar' : 'Crear mi plan'} onPress={guardar} />
