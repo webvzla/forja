@@ -104,7 +104,8 @@ function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void;
       </View>
       <Opciones titulo="Experiencia" valor={nivel} onCambio={setNivel} opciones={[['principiante', 'Principiante'], ['intermedio', 'Intermedio'], ['avanzado', 'Avanzado']]} />
       <Opciones titulo="¿Dónde entrenas?" valor={equipo} onCambio={setEquipo} opciones={[['gym', 'Gimnasio'], ['mancuernas', 'Solo mancuernas'], ['casa', 'En casa, sin material']]} />
-      <Opciones titulo="Zona que quieres priorizar" valor={enfasis} onCambio={setEnfasis} opciones={[['ninguno', 'Ninguna'], ['pecho', 'Pecho'], ['espalda', 'Espalda'], ['pierna', 'Pierna'], ['gluteo', 'Glúteo'], ['brazos', 'Brazos']]} />
+      <Opciones titulo="Zona que quieres priorizar" valor={enfasis} onCambio={setEnfasis} opciones={[['ninguno', 'Ninguna'], ['pecho', 'Pecho'], ['espalda', 'Espalda'], ['pierna', 'Pierna'], ['gluteo', 'Glúteo'], ['brazos', 'Brazos'], ['abdomen', 'Abdomen']]} />
+      {enfasis === 'abdomen' ? <Text style={e.sub}>Añado dos ejercicios de abdomen cada día. Para que se marque, lo que más cuenta es bajar grasa: la comida pesa más que los abdominales.</Text> : null}
       {error ? <Text style={{ color: c.rojo, fontSize: 15 }}>{error}</Text> : null}
       {i ? <Text style={e.sub}>Si cambias objetivo, días, experiencia, lugar o zona, se rehacen las rutinas del coach.</Text> : null}
       <Pildora texto={i ? 'Guardar' : 'Crear mi plan'} onPress={guardar} />

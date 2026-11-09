@@ -41,4 +41,9 @@ export const GUIAS: Record<string, { como: string; error: string }> = {
   'Elevación de gemelos': { como: 'De pie, sube sobre las puntas, aguanta un segundo y baja despacio.', error: 'Rebotar sin controlar.' },
   'Encogimientos abdominales': { como: 'Tumbado con rodillas dobladas, despega los hombros apretando el abdomen.', error: 'Tirar del cuello con las manos.' },
   'Elevación de piernas': { como: 'Tumbado con la zona lumbar pegada al suelo, sube las piernas y baja despacio.', error: 'Arquear la espalda al bajar.' },
+  Plancha: { como: 'Apoyado en antebrazos y puntas de los pies, cuerpo recto de la cabeza a los talones. Aguanta apretando abdomen y glúteos. Aquí las "repeticiones" son segundos.', error: 'Dejar caer la cadera o subirla en pico.' },
+  'Plancha lateral': { como: 'De lado, apoyado en un antebrazo, sube la cadera hasta formar una línea recta y aguanta. Haz los dos lados. Las "repeticiones" son segundos por lado.', error: 'Dejar caer la cadera hacia el suelo.' },
+  'Crunch en polea': { como: 'De rodillas frente a la polea alta, cuerda junto a la cabeza. Enrolla el tronco llevando los codos hacia las rodillas.', error: 'Tirar con los brazos en vez de con el abdomen.' },
+  'Rueda abdominal': { como: 'De rodillas, rueda hacia delante con los brazos estirados hasta donde controles la espalda y vuelve.', error: 'Arquear la zona lumbar al estirarte.' },
+  'Dead bug': { como: 'Boca arriba, brazos al techo y rodillas a 90°. Estira brazo y pierna contrarios sin despegar la zona lumbar del suelo, y cambia.', error: 'Separar la espalda baja del suelo.' },
 };

@@ -67,6 +67,11 @@ const CATALOGO: Item[] = [
   { n: 'Elevación de gemelos', p: 'gemelos', eq: T },
   { n: 'Encogimientos abdominales', p: 'core', eq: T },
   { n: 'Elevación de piernas', p: 'core', eq: T },
+  { n: 'Plancha', p: 'core', eq: T },
+  { n: 'Plancha lateral', p: 'core', eq: T },
+  { n: 'Crunch en polea', p: 'core', eq: G },
+  { n: 'Rueda abdominal', p: 'core', eq: GM, dificil: true },
+  { n: 'Dead bug', p: 'core', eq: T },
 ];
 
 const ACCESORIOS: Patron[] = ['triceps', 'biceps', 'gemelos', 'core'];
@@ -105,6 +110,7 @@ const ENFASIS: Record<Enfasis, Patron[]> = {
   pierna: ['rodilla', 'cadera', 'unilateral'],
   gluteo: ['cadera', 'unilateral'],
   brazos: ['triceps', 'biceps'],
+  abdomen: ['core'],
 };
 
 function rango(objetivo: Objetivo, p: Patron): [number, number] {
@@ -149,7 +155,9 @@ export function generarPlan(perfil: Perfil): Rutina[] {
   return dias.map(([nombre, plantilla, variante], i) => {
     const usados = new Set<string>();
     const ejercicios: Ejercicio[] = [];
-    for (const p of plantilla) {
+    // Abdomen: dos ejercicios de core todos los días (aunque sea día de torso).
+    const patrones = perfil.enfasis === 'abdomen' ? [...plantilla.filter((x) => x !== 'core'), 'core', 'core'] as Patron[] : plantilla;
+    for (const p of patrones) {
       const libres = opciones(p, perfil).filter((x) => !usados.has(x.n));
       if (!libres.length) continue;
       const item = libres[variante % libres.length];
@@ -159,7 +167,8 @@ export function generarPlan(perfil: Perfil): Rutina[] {
       const extra = ENFASIS[perfil.enfasis].includes(p) ? 1 : 0;
       // Sin peso, pocas repeticiones no sirven: el esfuerzo llega con más repeticiones y menos descanso.
       const enCasa = perfil.equipo === 'casa' && p !== 'core' && p !== 'gemelos';
-      const [reps, repsMax] = enCasa ? [10, 15] : rango(perfil.objetivo, p);
+      // En las planchas las repeticiones son segundos aguantando.
+      const [reps, repsMax] = item.n.startsWith('Plancha') ? [30, 60] : enCasa ? [10, 15] : rango(perfil.objetivo, p);
       const descanso = enCasa ? 75 : descansoDe(perfil.objetivo, p);
       ejercicios.push({ id: nuevoId(), nombre: item.n, series: Math.min(5, base + extra), reps, repsMax, descanso });
     }

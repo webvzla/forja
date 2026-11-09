@@ -223,7 +223,7 @@ function pasoMain(x: Ingrediente) {
   const n = conArt(x);
   if (x.id === 'carne') return 'Dora la carne picada 8 a 10 minutos, hasta que no quede rosa.';
   if (x.id === 'atun' || x.id === 'sardinas') return `Escurre ${n} y desmenuza.`;
-  if (x.id === 'huevos') return 'Cuece los huevos 9 minutos o hazlos a la plancha.';
+  if (x.id === 'huevos') return 'Hierve los huevos 9 minutos (o hazlos a la plancha si los prefieres así).';
   if (x.id === 'claras') return 'Cuaja las claras en la sartén a fuego medio.';
   if (x.tipo === 'legumbre') return `Enjuaga ${n} y calienta 5 minutos.`;
   if (x.id === 'gambas') return 'Saltea las gambas 3 minutos, hasta que estén rosadas.';
@@ -233,19 +233,28 @@ function pasoMain(x: Ingrediente) {
 }
 
 function pasoCarbo(x: Ingrediente) {
-  if (x.id === 'arroz') return 'Cuece el arroz unos 15 minutos en agua con sal.';
-  if (x.id === 'pasta') return 'Cuece la pasta en agua con sal el tiempo que indique el paquete.';
-  if (x.id === 'patata' || x.id === 'batata') return `Trocea ${conArt(x)} y cuece 20 minutos.`;
-  if (x.id === 'quinoa') return 'Lava la quinoa y cuécela 15 minutos.';
+  if (x.id === 'arroz') return 'Pon el arroz a cocinar en agua con sal unos 15 a 18 minutos, hasta que esté blando.';
+  if (x.id === 'pasta') return 'Hierve agua con sal y cocina la pasta el tiempo que diga el paquete.';
+  if (x.id === 'patata' || x.id === 'batata') return `Trocea ${conArt(x)} y hiérvela unos 20 minutos, hasta que esté blanda.`;
+  if (x.id === 'quinoa') return 'Lava la quinoa y hiérvela 15 minutos.';
   if (x.id === 'cuscus') return 'Hidrata el cuscús 5 minutos con agua caliente y sal.';
-  if (x.id === 'yuca') return 'Pela la yuca y cuécela 25 minutos, hasta que esté tierna.';
+  if (x.id === 'yuca') return 'Pela la yuca y hiérvela unos 25 minutos, hasta que esté blanda.';
   if (x.id === 'maiz') return 'Calienta el maíz 3 minutos.';
   if (x.id === 'tortilla_trigo') return 'Calienta las tortillas 30 segundos por cada lado.';
   if (x.id === 'pan') return 'Tuesta el pan.';
   return `Prepara ${conArt(x)}.`;
 }
 
-const pasoVerdura = (c: Ctx) => (c.veg.length ? [`Corta ${art(c.veg)} y saltea 4 o 5 minutos a fuego medio.`] : []);
+// Lechuga, pepino y tomate van en crudo; el resto se saltea.
+const CRUDAS = ['lechuga', 'pepino', 'tomate'];
+const pasoVerdura = (c: Ctx) => {
+  const crudas = c.veg.filter((x) => CRUDAS.includes(x.id));
+  const cocinadas = c.veg.filter((x) => !CRUDAS.includes(x.id));
+  return [
+    ...(cocinadas.length ? [`Corta ${art(cocinadas)} y saltéalo todo 4 o 5 minutos a fuego medio.`] : []),
+    ...(crudas.length ? [`Lava y corta ${art(crudas)} en crudo para acompañar.`] : []),
+  ];
+};
 const aceite = (c: Ctx) => (tiene(c.fat, 'aceite') ? 'Pon el aceite en la sartén. ' : 'Usa una sartén antiadherente. ');
 const extras = (c: Ctx) => {
   const x = [...c.lact, ...sin(c.fat, 'aceite'), ...c.fruta, ...c.supl];
@@ -306,7 +315,7 @@ const PLANTILLAS: Plantilla[] = [
   {
     vale: (c) => c.veg.length >= 2 && !c.main.length && c.carb.every((x) => x.id === 'patata'),
     titulo: (c) => `Crema de ${nom(c.veg)}`,
-    pasos: (c) => [`Trocea ${art([...c.veg, ...c.carb])}.`, 'Cúbrelo con agua y cuece 20 minutos.', 'Tritura hasta que quede cremoso.', ...extras(c), servir(c)],
+    pasos: (c) => [`Trocea ${art([...c.veg, ...c.carb])}.`, 'Cúbrelo con agua y déjalo hervir 20 minutos.', 'Tritura hasta que quede cremoso.', ...extras(c), servir(c)],
   },
   {
     vale: (c) => tiene(c.main, 'huevos') && c.veg.length > 0,
@@ -339,7 +348,7 @@ const PLANTILLAS: Plantilla[] = [
   {
     vale: (c) => tiene(c.carb, 'pasta'),
     titulo: (c) => `Pasta con ${nom([...c.main, ...c.veg]) || 'tomate'}`,
-    pasos: (c) => ['Cuece la pasta en agua con sal el tiempo que indique el paquete.', ...c.main.map(pasoMain), ...pasoVerdura(c), 'Mezcla todo en la sartén con un poco del agua de cocción.', ...extras(c), servir(c)],
+    pasos: (c) => ['Hierve agua con sal y cocina la pasta el tiempo que diga el paquete.', ...c.main.map(pasoMain), ...pasoVerdura(c), 'Mezcla todo en la sartén con un poco del agua de cocción.', ...extras(c), servir(c)],
   },
   {
     vale: (c) => c.main.some((x) => x.tipo === 'legumbre'),
@@ -370,7 +379,7 @@ const PLANTILLAS: Plantilla[] = [
     pasos: (c) => [...c.carb.map(pasoCarbo), ...c.main.map(pasoMain), ...pasoVerdura(c), 'Monta todo en un bol.', ...extras(c), servir(c)],
   },
   {
-    vale: (c) => c.main.length > 0 && c.veg.length > 0 && !tiene(c.main, 'huevos', 'claras'),
+    vale: (c) => c.main.length > 0 && c.veg.some((x) => !CRUDAS.includes(x.id)) && !tiene(c.main, 'huevos', 'claras'),
     titulo: (c) => `Salteado de ${nom(c.main)} con ${nom(c.veg)}`,
     pasos: (c) => [...c.main.map(pasoMain), ...pasoVerdura(c), 'Junta todo en la sartén 1 minuto.', ...c.carb.map(pasoCarbo), ...extras(c), servir(c)],
   },

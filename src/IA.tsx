@@ -103,7 +103,7 @@ Despensa (id: nombre, cantidad):
 ${despensa || '(vacía)'}
 ${evitar ? `NO uses nunca: ${evitar}.` : ''}
 ${meta ? `Su meta diaria: ${meta.proteina} g de proteína y ${meta.kcal} kcal. Hoy lleva ${Math.round(hoy.p)} g y ${Math.round(hoy.kcal)} kcal. Una ración debería aportar unos ${Math.max(20, Math.min(55, Math.round(meta.proteina / 3)))} g de proteína.` : ''}
-Usa ingredientes de la despensa (puedes añadir del catálogo si falta algo esencial). Sal, pimienta, especias, agua y un chorrito de aceite no cuentan.
+Usa ingredientes de la despensa (puedes añadir del catálogo si falta algo esencial). Escribe los pasos con palabras que se entiendan en España y en Venezuela (cocinar, hervir, sofreír; evita "cocer"). La lechuga, el pepino y el aguacate van en crudo. Sal, pimienta, especias, agua y un chorrito de aceite no cuentan.
 Catálogo (id: nombre (unidad)):
 ${catalogo()}
 Formato: {"titulo": "nombre apetecible", "sabor": "estilo o aliño en 3-5 palabras", "lineas": [{"id": "id del catálogo", "cantidad": cantidad TOTAL para todas las raciones en la unidad del catálogo}], "pasos": ["paso corto", "..."]}`,

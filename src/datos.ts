@@ -15,7 +15,7 @@ export type Rutina = {
 export type Objetivo = 'grasa' | 'musculo' | 'fuerza' | 'mantener';
 export type Nivel = 'principiante' | 'intermedio' | 'avanzado';
 export type Equipo = 'gym' | 'mancuernas' | 'casa';
-export type Enfasis = 'ninguno' | 'pecho' | 'espalda' | 'pierna' | 'gluteo' | 'brazos';
+export type Enfasis = 'ninguno' | 'pecho' | 'espalda' | 'pierna' | 'gluteo' | 'brazos' | 'abdomen';
 export type Perfil = {
   sexo: 'h' | 'm';
   edad: number;
