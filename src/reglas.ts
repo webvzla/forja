@@ -84,6 +84,29 @@ const INFERIOR: Patron[] = ['rodilla', 'cadera', 'unilateral', 'gemelos', 'core'
 const EMPUJE: Patron[] = ['empuje_h', 'empuje_v', 'empuje_aux', 'triceps'];
 const TIRON: Patron[] = ['tiron_v', 'tiron_h', 'tiron_h', 'biceps'];
 
+// ---------- Objetivos (hasta 2 combinados) ----------
+export const TEXTO_OBJETIVO: Record<Objetivo, string> = {
+  grasa: 'Perder grasa',
+  musculo: 'Ganar músculo',
+  fuerza: 'Ganar fuerza',
+  mantener: 'Mantenerme',
+};
+export const objetivos = (p: { objetivo: Objetivo; objetivo2?: Objetivo | null }): Objetivo[] =>
+  p.objetivo2 && p.objetivo2 !== p.objetivo ? [p.objetivo, p.objetivo2] : [p.objetivo];
+const con = (o: Objetivo[], ...x: Objetivo[]) => x.every((y) => o.includes(y));
+export const esRecomposicion = (o: Objetivo[]) => con(o, 'grasa', 'musculo');
+export function textoObjetivo(p: { objetivo: Objetivo; objetivo2?: Objetivo | null }) {
+  const o = objetivos(p);
+  if (esRecomposicion(o)) return 'Perder grasa y ganar músculo';
+  if (con(o, 'musculo', 'fuerza')) return 'Ganar músculo y fuerza';
+  if (con(o, 'grasa', 'fuerza')) return 'Perder grasa y ganar fuerza';
+  if (con(o, 'mantener', 'musculo')) return 'Mantener peso y ganar músculo';
+  if (con(o, 'mantener', 'fuerza')) return 'Mantener peso y ganar fuerza';
+  return TEXTO_OBJETIVO[o[0]];
+}
+// Combinaciones que se contradicen.
+export const incompatibles = (a: Objetivo, b: Objetivo) => [a, b].includes('grasa') && [a, b].includes('mantener');
+
 type Dia = [string, Patron[], number];
 const PLANES: Record<number, Dia[]> = {
   2: [['Cuerpo completo A', CUERPO, 0], ['Cuerpo completo B', CUERPO, 1]],
@@ -114,19 +137,29 @@ const ENFASIS: Record<Enfasis, Patron[]> = {
   abdomen: ['core'],
 };
 
-function rango(objetivo: Objetivo, p: Patron): [number, number] {
+function rango(o: Objetivo[], p: Patron): [number, number] {
   if (p === 'core' || p === 'gemelos') return [12, 20];
   const acc = ACCESORIOS.includes(p);
+  // Fuerza combinada con otro objetivo: básicos pesados (5-8) y accesorios del otro objetivo.
+  if (o.includes('fuerza') && o.length > 1 && !o.includes('mantener')) {
+    if (!acc) return [5, 8];
+    return o.includes('grasa') ? [12, 15] : [10, 15];
+  }
+  if (esRecomposicion(o)) return acc ? [10, 15] : [8, 12];
+  const objetivo = o.includes('fuerza') ? 'fuerza' : o.includes('musculo') ? 'musculo' : o[0];
   if (objetivo === 'fuerza') return acc ? [8, 12] : [4, 6];
   if (objetivo === 'musculo') return acc ? [10, 15] : [8, 12];
   if (objetivo === 'grasa') return acc ? [12, 15] : [10, 15];
   return [8, 12];
 }
 
-function descansoDe(objetivo: Objetivo, p: Patron) {
+function descansoDe(o: Objetivo[], p: Patron) {
   if (p === 'core' || p === 'gemelos') return 45;
   if (ACCESORIOS.includes(p)) return 60;
-  return { fuerza: 180, musculo: 90, mantener: 75, grasa: 60 }[objetivo];
+  if (o.includes('fuerza')) return o.length > 1 ? 150 : 180;
+  if (esRecomposicion(o)) return 75;
+  if (o.includes('musculo')) return 90;
+  return { fuerza: 180, musculo: 90, mantener: 75, grasa: 60 }[o[0]];
 }
 
 const MAS_DIFICIL: Record<string, string> = {
@@ -170,8 +203,8 @@ export function generarPlan(perfil: Perfil): Rutina[] {
       // Sin peso, pocas repeticiones no sirven: el esfuerzo llega con más repeticiones y menos descanso.
       const enCasa = perfil.equipo === 'casa' && p !== 'core' && p !== 'gemelos';
       // En las planchas las repeticiones son segundos aguantando.
-      const [reps, repsMax] = item.n.startsWith('Plancha') ? [30, 60] : enCasa ? [10, 15] : rango(perfil.objetivo, p);
-      const descanso = enCasa ? 75 : descansoDe(perfil.objetivo, p);
+      const [reps, repsMax] = item.n.startsWith('Plancha') ? [30, 60] : enCasa ? [10, 15] : rango(objetivos(perfil), p);
+      const descanso = enCasa ? 75 : descansoDe(objetivos(perfil), p);
       ejercicios.push({ id: nuevoId(), nombre: item.n, series: Math.min(5, base + extra), reps, repsMax, descanso });
     }
     return { id: nuevoId(), nombre, ejercicios, deCoach: true, dia: semana[i] };
@@ -211,7 +244,13 @@ export function nutricion(p: Perfil) {
   const metros = p.altura / 100;
   const imc = p.peso / (metros * metros);
 
-  let cambio = { grasa: -0.2, musculo: 0.1, fuerza: 0.05, mantener: 0 }[p.objetivo];
+  const o = objetivos(p);
+  const solo = { grasa: -0.2, musculo: 0.1, fuerza: 0.05, mantener: 0 };
+  let cambio = o.length === 1 ? solo[o[0]]
+    : esRecomposicion(o) ? -0.1 // déficit pequeño: pierdes grasa sin frenar el músculo
+      : con(o, 'grasa', 'fuerza') ? -0.15
+        : con(o, 'musculo', 'fuerza') ? 0.1
+          : 0; // mantener + músculo/fuerza
   let aviso: string | null = null;
   if (cambio < 0 && p.edad < 18) {
     cambio = 0;
@@ -224,7 +263,8 @@ export function nutricion(p: Perfil) {
   const minimo = p.sexo === 'h' ? 1500 : 1200;
   const ajuste = cambio === 0 && aviso ? 0 : p.ajusteKcal;
   const kcal = Math.max(minimo, Math.round((mantenimiento * (1 + cambio) + ajuste) / 50) * 50);
-  const gramosKg = { grasa: 2, musculo: 1.8, fuerza: 1.8, mantener: 1.6 }[p.objetivo];
+  const gk = { grasa: 2, musculo: 1.8, fuerza: 1.8, mantener: 1.6 };
+  const gramosKg = esRecomposicion(o) ? 2.2 : Math.max(...o.map((x) => gk[x]));
   const pesoReferencia = Math.min(p.peso, 27 * metros * metros);
   return { kcal, proteina: Math.round(pesoReferencia * gramosKg), imc, aviso };
 }
@@ -316,13 +356,19 @@ export function ajustarPlan(d: Datos): { rutinas: Rutina[]; perfil: Perfil; camb
   let ajusteKcal = perfil.ajusteKcal;
   if (r.tendencia !== null) {
     const limite = (n: number) => Math.max(-300, Math.min(300, n));
-    if (perfil.objetivo === 'grasa' && r.tendencia >= -0.1) {
+    const o = objetivos(perfil);
+    const bajar = o.includes('grasa');
+    const subir = !bajar && o.includes('musculo') && !o.includes('mantener');
+    if (bajar && esRecomposicion(o) && r.tendencia > 0.1) {
+      ajusteKcal = limite(ajusteKcal - 100);
+      cambios.push('Tu peso sube: 100 kcal menos al día para seguir perdiendo grasa.');
+    } else if (bajar && !esRecomposicion(o) && r.tendencia >= -0.1) {
       ajusteKcal = limite(ajusteKcal - 100);
       cambios.push('Tu peso no baja: 100 kcal menos al día.');
-    } else if (perfil.objetivo === 'grasa' && r.tendencia < -perfil.peso * 0.01) {
+    } else if (bajar && r.tendencia < -perfil.peso * 0.01) {
       ajusteKcal = limite(ajusteKcal + 100);
       cambios.push('Estás bajando demasiado rápido: 100 kcal más al día.');
-    } else if (perfil.objetivo === 'musculo' && r.tendencia <= 0.05) {
+    } else if (subir && r.tendencia <= 0.05) {
       ajusteKcal = limite(ajusteKcal + 100);
       cambios.push('Tu peso no sube: 100 kcal más al día.');
     }

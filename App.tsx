@@ -8,7 +8,7 @@ import { Datos, Nivel3, Perfil, Rutina, cargar, cerrarActivo, claveDia, datosIni
 import { EstadoNube, alCambiarEstado, borrarCuenta, cargarNube, eligioSinCuenta, guardarNube, nubeActiva, sb, usarSinCuenta, usuarioActual } from './src/nube';
 import { Cuenta } from './src/Cuenta';
 import { Retos, subirResumen } from './src/Retos';
-import { generarPlan } from './src/reglas';
+import { generarPlan, objetivos } from './src/reglas';
 import { Coach } from './src/Coach';
 import { Comida } from './src/Comida';
 import { Entreno } from './src/Entreno';
@@ -121,7 +121,7 @@ export default function App() {
   const guardarPerfil = (x: Perfil) => {
     const a = datos.perfil;
     const rehacer =
-      !a || a.objetivo !== x.objetivo || [...(a.diasSemana ?? [])].sort().join() !== [...x.diasSemana].sort().join() || a.nivel !== x.nivel || a.equipo !== x.equipo || zonas(a).sort().join() !== zonas(x).sort().join();
+      !a || objetivos(a).join() !== objetivos(x).join() || [...(a.diasSemana ?? [])].sort().join() !== [...x.diasSemana].sort().join() || a.nivel !== x.nivel || a.equipo !== x.equipo || zonas(a).sort().join() !== zonas(x).sort().join();
     setDatos({
       ...datos,
       perfil: x,

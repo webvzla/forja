@@ -22,6 +22,7 @@ export type Perfil = {
   altura: number;
   peso: number;
   objetivo: Objetivo;
+  objetivo2?: Objetivo | null; // segundo objetivo opcional (ej. músculo + fuerza)
   dias: number;
   diasSemana: number[]; // 0 = lunes
   descargaHasta?: number | null;

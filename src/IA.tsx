@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ingrediente, Linea, Receta, Tipo, Unidad, crearAlimento, macrosDe, porId, todosLosIngredientes } from './alimentos';
 import { Datos, Stock, claveDia, nuevoId } from './datos';
 import { ErrorIA, pedirIA, pedirJSON, textoErrorIA } from './nube';
-import { nutricion } from './reglas';
+import { nutricion, textoObjetivo } from './reglas';
 import { Campo, Pildora, Tarjeta, c } from './ui';
 import { elegirArchivo } from './web';
 
@@ -151,7 +151,7 @@ export function ChatCoach({ d }: { d: Datos }) {
     setRespuesta('');
     const meta = d.perfil ? nutricion(d.perfil) : null;
     const contexto = {
-      perfil: d.perfil && { sexo: d.perfil.sexo, edad: d.perfil.edad, altura: d.perfil.altura, peso: d.perfil.peso, objetivo: d.perfil.objetivo, dias: d.perfil.dias, nivel: d.perfil.nivel, equipo: d.perfil.equipo },
+      perfil: d.perfil && { sexo: d.perfil.sexo, edad: d.perfil.edad, altura: d.perfil.altura, peso: d.perfil.peso, objetivo: textoObjetivo(d.perfil), dias: d.perfil.dias, nivel: d.perfil.nivel, equipo: d.perfil.equipo },
       metas: meta && { kcal: meta.kcal, proteina: meta.proteina },
       hoy: (d.comida[claveDia()] ?? []).map((x) => `${x.nombre} (${Math.round(x.proteina)} g prot)`),
       despensa: d.despensa.map((s) => porId(s.ing)?.nombre).filter(Boolean),

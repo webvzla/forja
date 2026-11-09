@@ -5,7 +5,7 @@ import { ChatCoach } from './IA';
 import type { EstadoNube } from './nube';
 import { EnlacePrivacidad } from './Privacidad';
 import { Datos, Enfasis, Equipo, Nivel, Objetivo, Perfil, Rutina, aNumero, formatoNum, zonas } from './datos';
-import { NOMBRE_DIA, ajustarPlan, diaHoy, inicioSemana, nutricion, revisar } from './reglas';
+import { NOMBRE_DIA, ajustarPlan, diaHoy, inicioSemana, nutricion, revisar, TEXTO_OBJETIVO, incompatibles, objetivos, textoObjetivo } from './reglas';
 import { Grafica } from './Progreso';
 import { Campo, Dialogo, Pildora, Tarjeta, Titulo, c } from './ui';
 
@@ -36,14 +36,17 @@ function Opciones<T extends string | number>(p: {
   );
 }
 
+// Qué hace el plan con cada combinación (claves en orden alfabético).
+const EXPLICA: Record<string, string> = {
+  'grasa+musculo': 'Recomposición: un déficit pequeño de calorías y mucha proteína para perder grasa sin perder músculo. Va más lento que hacer una cosa cada vez, pero se nota en el espejo.',
+  'fuerza+grasa': 'Pesos altos en los ejercicios básicos (5–8 repeticiones) y un déficit moderado para perder grasa sin perder fuerza.',
+  'fuerza+musculo': 'Básicos pesados (5–8 repeticiones) para la fuerza y accesorios de 10–15 para el músculo, con un pequeño superávit de calorías.',
+  'mantener+musculo': 'Comes lo justo para mantener el peso y entrenas para ganar músculo: cambio lento pero sin subir de peso.',
+  'fuerza+mantener': 'Comes lo justo para mantener el peso y entrenas pesado para ganar fuerza.',
+};
+
 const ZONAS: [Enfasis, string][] = [['ninguno', 'Ninguna'], ['pecho', 'Pecho'], ['espalda', 'Espalda'], ['pierna', 'Pierna'], ['gluteo', 'Glúteo'], ['brazos', 'Brazos'], ['abdomen', 'Abdomen']];
 
-const TEXTO_OBJETIVO: Record<Objetivo, string> = {
-  grasa: 'Perder grasa',
-  musculo: 'Ganar músculo',
-  fuerza: 'Ganar fuerza',
-  mantener: 'Mantenerme',
-};
 
 function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void; onCancelar?: () => void }) {
   const i = p.inicial;
@@ -51,7 +54,9 @@ function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void;
   const [edad, setEdad] = useState(i ? String(i.edad) : '');
   const [altura, setAltura] = useState(i ? String(i.altura) : '');
   const [peso, setPeso] = useState(i ? formatoNum(i.peso) : '');
-  const [objetivo, setObjetivo] = useState<Objetivo>(i?.objetivo ?? 'musculo');
+  const [metas, setMetas] = useState<Objetivo[]>(i ? objetivos(i) : ['musculo']);
+  const [avisoMetas, setAvisoMetas] = useState('');
+  const objetivo = metas[0];
   const [diasSemana, setDiasSemana] = useState<number[]>(i?.diasSemana ?? [0, 1, 3, 4]);
   const [nivel, setNivel] = useState<Nivel>(i?.nivel ?? 'principiante');
   const [equipo, setEquipo] = useState<Equipo>(i?.equipo ?? 'gym');
@@ -68,9 +73,9 @@ function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void;
     if (pe < 30 || pe > 250) return setError('Pon tu peso en kilos, por ejemplo 78.');
     if (diasSemana.length < 2 || diasSemana.length > 6) return setError('Elige entre 2 y 6 días para entrenar.');
     p.onGuardar({
-      sexo, edad: Math.round(ed), altura: Math.round(al), peso: pe, objetivo, dias: diasSemana.length, diasSemana, nivel, equipo, enfasis,
+      sexo, edad: Math.round(ed), altura: Math.round(al), peso: pe, objetivo, objetivo2: metas[1] ?? null, dias: diasSemana.length, diasSemana, nivel, equipo, enfasis,
       descargaHasta: i?.descargaHasta ?? null,
-      ajusteKcal: i?.objetivo === objetivo ? i.ajusteKcal : 0,
+      ajusteKcal: i && objetivos(i).join() === metas.join() ? i.ajusteKcal : 0,
       ultimaRevision: i?.ultimaRevision ?? null,
     });
   };
@@ -85,7 +90,34 @@ function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void;
         <Dato titulo="Altura (cm)" valor={altura} onCambio={setAltura} pista="175" />
         <Dato titulo="Peso (kg)" valor={peso} onCambio={setPeso} pista="78" />
       </View>
-      <Opciones titulo="¿Qué quieres conseguir?" valor={objetivo} onCambio={setObjetivo} opciones={Object.entries(TEXTO_OBJETIVO) as [Objetivo, string][]} />
+      <View style={{ gap: 8 }}>
+        <Text style={e.etiqueta}>¿Qué quieres conseguir? (hasta 2)</Text>
+        <View style={e.chips}>
+          {(Object.entries(TEXTO_OBJETIVO) as [Objetivo, string][]).map(([o, texto]) => {
+            const on = metas.includes(o);
+            return (
+              <Pressable
+                key={o}
+                accessibilityRole="button"
+                accessibilityLabel={`¿Qué quieres conseguir?: ${texto}`}
+                accessibilityState={{ selected: on }}
+                onPress={() => {
+                  setAvisoMetas('');
+                  if (on) return metas.length > 1 ? setMetas(metas.filter((x) => x !== o)) : undefined;
+                  if (metas.some((x) => incompatibles(x, o))) return setAvisoMetas('Perder grasa y mantenerte se contradicen: elige uno de los dos.');
+                  if (metas.length >= 2) return setAvisoMetas('Máximo 2 objetivos: con más a la vez no avanzas bien en ninguno. Quita uno primero.');
+                  setMetas([...metas, o]);
+                }}
+                style={[e.chip, on && { backgroundColor: c.oro }]}
+              >
+                <Text style={[e.chipTexto, on && { color: c.sobreOro }]}>{texto}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {avisoMetas ? <Text style={{ color: c.oro, fontSize: 15, lineHeight: 21 }}>{avisoMetas}</Text> : null}
+        {metas.length > 1 ? <Text style={e.sub}>{EXPLICA[[...metas].sort().join('+')] ?? ''}</Text> : null}
+      </View>
       <View style={{ gap: 8 }}>
         <Text style={e.etiqueta}>¿Qué días entrenas?</Text>
         <View style={e.chips}>
@@ -196,7 +228,7 @@ export function Coach(p: {
     <ScrollView contentContainerStyle={e.pagina} keyboardShouldPersistTaps="handled">
       <Titulo>Tu coach</Titulo>
       <Tarjeta>
-        <Text style={e.grande}>{TEXTO_OBJETIVO[perfil.objetivo]}</Text>
+        <Text style={e.grande}>{textoObjetivo(perfil)}</Text>
         <Text style={e.sub}>{perfil.dias} días por semana · {formatoNum(perfil.peso)} kg · IMC {formatoNum(Math.round(n.imc * 10) / 10)}</Text>
         <View style={e.datos}>
           <Cifra valor={String(n.kcal)} texto="kcal al día" />
