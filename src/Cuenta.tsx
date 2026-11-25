@@ -61,7 +61,7 @@ export function Cuenta(p: { modoInicial?: Modo; invitacion?: string | null; onLi
         p.onListo(data.user);
       } else if (modo === 'registro') {
         // Se guarda en la cuenta (metadatos de Supabase) qué versión de los textos se aceptó y cuándo: es la prueba del consentimiento.
-        const { data, error } = await sb.auth.signUp({ email: mail, password: clave, options: { data: { terminos: VERSION_TEXTOS, edad_minima: EDAD_MINIMA, consentimiento_datos_nube: VERSION_TEXTOS, consentimiento_sensaciones: sensaciones ? VERSION_CONSENTIMIENTO_SENSACIONES : 0, aceptado: new Date().toISOString() }, ...cap } });
+        const { data, error } = await sb.auth.signUp({ email: mail, password: clave, options: { data: { terminos: VERSION_TEXTOS, edad_minima: EDAD_MINIMA, consentimiento_datos_nube: VERSION_TEXTOS, consentimiento_sensaciones: sensaciones ? VERSION_CONSENTIMIENTO_SENSACIONES : 0, aceptado: new Date().toISOString() }, ...(Platform.OS === 'web' ? { emailRedirectTo: window.location.origin + window.location.pathname } : {}), ...cap } });
         if (error) throw error;
         if (data.session && data.user) p.onListo(data.user);
         else {

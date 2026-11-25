@@ -7,7 +7,7 @@ export const CORREO_CONTACTO = (process.env.EXPO_PUBLIC_CORREO_CONTACTO ?? '').t
 export const PROVEEDOR_CORREO = 'Google (Gmail)'; // servicio que envía los correos de registro y el aviso de opiniones
 export const LEGAL_REVISADO = false; // true solo cuando un profesional haya revisado los textos y el titular los apruebe
 
-export const VERSION_TEXTOS = 1; // sube cuando cambien la privacidad o los términos
+export const VERSION_TEXTOS = 2; // sube cuando cambien la privacidad o los términos
 export const EDAD_MINIMA = 16; // provisional, pendiente de la revisión legal
 export const PLAZO_OPINIONES = '12 meses'; // borrado MANUAL de opiniones y capturas: no hay nada automático
 
