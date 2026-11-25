@@ -1,3 +1,4 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 import {
   Datos,
   Ejercicio,
@@ -6,7 +7,9 @@ import {
   Objetivo,
   Perfil,
   Rutina,
+  Nivel,
   Sesion,
+  dificultadDe,
   historial,
   mismoEjercicio,
   nuevoId,
@@ -198,11 +201,34 @@ export function alternativas(nombre: string, perfil: Perfil | null) {
   return CATALOGO.filter((x) => x.p === actual.p && x.n !== actual.n && x.eq.includes(equipo)).map((x) => x.n);
 }
 
+// Ejercicios disponibles para un patrón. Con dificultad Suave se evitan los ejercicios técnicamente más exigentes.
+// Ojo: lo decide la DIFICULTAD que eliges, no tu nivel físico.
 function opciones(p: Patron, perfil: Perfil) {
   const validas = CATALOGO.filter((x) => x.p === p && x.eq.includes(perfil.equipo));
-  if (perfil.nivel !== 'principiante') return validas;
+  if (dificultadDe(perfil) !== 'principiante') return validas;
   const faciles = validas.filter((x) => !x.dificil);
   return faciles.length ? faciles : validas;
+}
+
+// Series de base según la dificultad elegida: Suave 3 en los principales; Media 4; Exigente 4 y una más en el primer
+// ejercicio del día. Los accesorios (tríceps, bíceps, gemelos, core) siempre 3.
+export function seriesBase(dificultad: Nivel, accesorio: boolean, primero: boolean) {
+  if (accesorio || dificultad === 'principiante') return 3;
+  return dificultad === 'avanzado' && primero ? 5 : 4;
+}
+
+// ¿Cambiar el perfil obliga a rehacer el plan del coach? (Tu nivel físico NO: solo objetivos, días, material y zonas.)
+export function planCambia(a: Perfil | null | undefined, x: Perfil) {
+  return !a || objetivos(a).join() !== objetivos(x).join() || [...(a.diasSemana ?? [])].sort().join() !== [...x.diasSemana].sort().join() || a.equipo !== x.equipo || zonas(a).sort().join() !== zonas(x).sort().join();
+}
+
+// Al rehacer el plan se conservan tus rutinas propias y también las del coach que habías editado: pasan a ser rutinas
+// tuyas (sin día asignado) para no borrar tu trabajo. Solo se sustituye el plan del coach sin tocar.
+export function rutinasTrasRehacer(actuales: Rutina[], plan: Rutina[]): Rutina[] {
+  const conservadas = actuales
+    .filter((r) => (!r.deCoach && !r.ejemplo) || r.personalizada)
+    .map((r) => (r.deCoach ? { ...r, deCoach: false, personalizada: undefined, dia: undefined } : r));
+  return [...plan, ...conservadas];
 }
 
 export function generarPlan(perfil: Perfil): Rutina[] {
@@ -220,7 +246,7 @@ export function generarPlan(perfil: Perfil): Rutina[] {
       const item = libres[variante % libres.length];
       usados.add(item.n);
       const acc = ACCESORIOS.includes(p);
-      const base = perfil.nivel === 'principiante' || acc ? 3 : 4;
+      const base = seriesBase(dificultadDe(perfil), acc, ejercicios.length === 0);
       const extra = prioridad.some((z) => ENFASIS[z].includes(p)) ? 1 : 0;
       // Sin peso, pocas repeticiones no sirven: el esfuerzo llega con más repeticiones y menos descanso.
       const enCasa = perfil.equipo === 'casa' && p !== 'core' && p !== 'gemelos';
@@ -344,14 +370,11 @@ export function ajustarPlan(d: Datos): { rutinas: Rutina[]; perfil: Perfil; camb
   const r = revisar(d);
   const cambios: string[] = [];
 
-  let rutinas = d.rutinas.map((rut) => {
-    if (!rut.deCoach) return rut;
+  const rutinas = d.rutinas.map((rut) => {
+    if (!rut.deCoach || rut.personalizada) return rut; // tus rutinas y las que has editado no se tocan
+    // La revisión nunca sube la exigencia por su cuenta (ni series ni ejercicios más duros): eso lo decides tú
+    // con la dificultad. Solo cambia ejercicios estancados por otros del mismo nivel y ajusta calorías.
     const ejercicios = rut.ejercicios.map((e) => {
-      const dificil = pesoSugerido(d.sesiones, e.nombre, e.reps, e.repsMax)?.dificil;
-      if (dificil && !rut.ejercicios.some((y) => mismoEjercicio(y.nombre, dificil))) {
-        cambios.push(`${rut.nombre}: ${e.nombre} ya te queda fácil, ahora ${dificil}.`);
-        return { ...e, id: nuevoId(), nombre: dificil };
-      }
       if (!r.estancados.includes(e.nombre)) return e;
       const actual = CATALOGO.find((x) => mismoEjercicio(x.n, e.nombre));
       if (!actual) return e;
@@ -366,14 +389,6 @@ export function ajustarPlan(d: Datos): { rutinas: Rutina[]; perfil: Perfil; camb
   });
 
   const cumple = r.hechos >= r.objetivo && r.anteriores >= r.objetivo;
-  if (cumple && !r.estancados.length && perfil.nivel !== 'principiante') {
-    rutinas = rutinas.map((rut) => {
-      const primero = rut.ejercicios[0];
-      if (!rut.deCoach || !primero || primero.series >= 5) return rut;
-      cambios.push(`${rut.nombre}: una serie más en ${primero.nombre}.`);
-      return { ...rut, ejercicios: rut.ejercicios.map((e, i) => (i === 0 ? { ...e, series: e.series + 1 } : e)) };
-    });
-  }
 
   let ajusteKcal = perfil.ajusteKcal;
   if (r.tendencia !== null) {
@@ -398,9 +413,44 @@ export function ajustarPlan(d: Datos): { rutinas: Rutina[]; perfil: Perfil; camb
 
   if (r.hechos < r.objetivo / 2 && r.anteriores < r.objetivo / 2 && perfil.dias > 2)
     cambios.push(`Entrenas menos de lo previsto. Si te cuesta, edita tu perfil y baja a ${perfil.dias - 1} días.`);
-  if (!cambios.length) cambios.push('Vas bien: mantén el plan esta semana y sigue subiendo pesos cuando te lo indique.');
+  if (!cambios.length)
+    cambios.push(cumple
+      ? 'Vas bien: mantén el plan. Si te queda fácil, mira la dificultad: tú decides si subirla.'
+      : 'Vas bien: mantén el plan esta semana y sigue subiendo pesos cuando te lo indique.');
 
   return { rutinas, perfil: { ...perfil, ajusteKcal, ultimaRevision: Date.now() }, cambios };
+}
+
+// Aplica una nueva DIFICULTAD al plan del coach (solo cuando tú lo aceptas). Conserva lo que ya has personalizado:
+// suma o resta la diferencia de series entre los dos niveles (entre 1 y 5) y, al pasar a Suave, cambia los ejercicios
+// más técnicos por una alternativa más sencilla del mismo tipo. No toca tus rutinas propias, ni pesos, ni nivel físico.
+export function reajustarPlan(d: Datos, nueva: Nivel): { rutinas: Rutina[]; cambios: string[] } {
+  const perfil = d.perfil;
+  const cambios: string[] = [];
+  if (!perfil) return { rutinas: d.rutinas, cambios };
+  const antes = dificultadDe(perfil);
+  const rutinas = d.rutinas.map((rut) => {
+    if (!rut.deCoach || rut.personalizada) return rut; // tus rutinas y las que has editado no se tocan
+    const ejercicios = rut.ejercicios.map((e, i) => {
+      const item = CATALOGO.find((x) => mismoEjercicio(x.n, e.nombre));
+      const acc = item ? ACCESORIOS.includes(item.p) : false;
+      const series = Math.max(1, Math.min(5, e.series + seriesBase(nueva, acc, i === 0) - seriesBase(antes, acc, i === 0)));
+      let actual = e;
+      if (nueva === 'principiante' && item?.dificil) {
+        const alt = opciones(item.p, { ...perfil, dificultad: 'principiante' }).find(
+          (x) => !x.dificil && !rut.ejercicios.some((y) => mismoEjercicio(y.nombre, x.n)),
+        );
+        if (alt) {
+          cambios.push(`${rut.nombre}: ${e.nombre} pasa a ${alt.n}.`);
+          actual = { ...e, id: nuevoId(), nombre: alt.n };
+        }
+      }
+      if (series !== e.series) cambios.push(`${rut.nombre}: ${actual.nombre}, ${series} ${series === 1 ? 'serie' : 'series'} (antes ${e.series}).`);
+      return series === e.series ? actual : { ...actual, series };
+    });
+    return { ...rut, ejercicios };
+  });
+  return { rutinas, cambios };
 }
 
 export const ALIMENTOS = [

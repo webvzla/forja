@@ -1,8 +1,9 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 import { ReactNode, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 import { Sesion, formatoNum, historial, nombresEjercicios, pesoMaximo } from './datos';
-import { Dialogo, Tarjeta, Titulo, c } from './ui';
+import { Dialogo, Tarjeta, Titulo, c, tam } from './ui';
 
 const fecha = (t: number) => new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short' });
 
@@ -74,11 +75,13 @@ export function Progreso(p: { sesiones: Sesion[]; onBorrar: (id: string) => void
     <ScrollView contentContainerStyle={e.pagina}>
       <Titulo>Progreso</Titulo>
       {p.arriba}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+      {/* Todos los ejercicios a la vista (se reparten en varias filas): antes era un carrusel horizontal sin barra ni pista y los últimos quedaban ocultos. */}
+      <View style={e.chips} accessibilityLabel="Ejercicios con historial">
         {nombres.map((n) => (
           <Pressable
             key={n}
             accessibilityRole="button"
+            accessibilityLabel={n}
             accessibilityState={{ selected: n === actual }}
             onPress={() => setElegido(n)}
             style={[e.chip, n === actual && { backgroundColor: c.oro }]}
@@ -86,7 +89,7 @@ export function Progreso(p: { sesiones: Sesion[]; onBorrar: (id: string) => void
             <Text style={[e.chipTexto, n === actual && { color: c.sobreOro }]}>{n}</Text>
           </Pressable>
         ))}
-      </ScrollView>
+      </View>
       <Tarjeta>
         <Text style={e.vacioTitulo}>
           {p.sesiones.some((s) => s.ejercicios.some((x) => x.nombre === actual && pesoMaximo(x.series) > 0))
@@ -106,7 +109,7 @@ export function Progreso(p: { sesiones: Sesion[]; onBorrar: (id: string) => void
           <View style={e.entre}>
             <Text style={e.vacioTitulo}>{s.rutinaNombre}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel={`Borrar entreno ${s.rutinaNombre}`} hitSlop={12} onPress={() => setBorrar(s)}>
-              <Text style={{ color: c.rojo, fontSize: 15 }}>Borrar</Text>
+              <Text style={{ color: c.rojo, fontSize: tam(15) }}>Borrar</Text>
             </Pressable>
           </View>
           <Text style={e.sub}>
@@ -141,12 +144,13 @@ const Dato = ({ valor, texto }: { valor: string; texto: string }) => (
 
 const e = StyleSheet.create({
   pagina: { padding: 16, gap: 14, paddingBottom: 32 },
-  sub: { color: c.suave, fontSize: 14, lineHeight: 20 },
-  vacioTitulo: { color: c.texto, fontSize: 17, fontWeight: '800' },
+  sub: { color: c.suave, fontSize: tam(14), lineHeight: tam(20) },
+  vacioTitulo: { color: c.texto, fontSize: tam(17), fontWeight: '800' },
   entre: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  chip: { backgroundColor: c.campo, borderRadius: 999, paddingHorizontal: 16, minHeight: 42, justifyContent: 'center' },
-  chipTexto: { color: c.texto, fontSize: 15, fontWeight: '700' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { backgroundColor: c.campo, borderRadius: 999, paddingHorizontal: 16, minHeight: 42, justifyContent: 'center', maxWidth: '100%' },
+  chipTexto: { color: c.texto, fontSize: tam(15), fontWeight: '700' },
   datos: { flexDirection: 'row', marginTop: 6 },
-  valor: { color: c.oro, fontSize: 26, fontWeight: '900' },
-  seccion: { color: c.texto, fontSize: 21, fontWeight: '900', marginTop: 6 },
+  valor: { color: c.oro, fontSize: tam(26), fontWeight: '900' },
+  seccion: { color: c.texto, fontSize: tam(21), fontWeight: '900', marginTop: 6 },
 });

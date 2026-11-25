@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Confirma tu nuevo correo</title></head>
+<body style="margin:0;background:#f3f4f6;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" style="max-width:520px;background:#ffffff;border-radius:18px;padding:28px 26px">
+<tr><td>
+<p style="margin:0 0 18px;font-size:26px;font-weight:900;letter-spacing:-0.5px;color:#14161a">FORJA <span style="background:#E8F04A;border-radius:999px;font-size:12px;padding:3px 9px;letter-spacing:1px;vertical-align:middle">BETA</span></p>
+<h1 style="margin:0 0 14px;font-size:21px;line-height:28px;color:#14161a">Confirma tu nuevo correo</h1>
+<p style="margin:0 0 14px;font-size:16px;line-height:24px;color:#1b1d22">Has pedido cambiar el correo de tu cuenta de FORJA BETA a {{ .NewEmail }}. Pulsa el botón para confirmarlo.</p><p style="margin:22px 0"><a href="{{ .ConfirmationURL }}" style="background:#E8F04A;color:#14161a;text-decoration:none;font-weight:800;padding:13px 26px;border-radius:999px;display:inline-block">Confirmar el cambio</a></p><p style="margin:0 0 14px;font-size:13px;line-height:20px;color:#5b616c">Si el botón no funciona, copia y pega este enlace en tu navegador:<br><span style="word-break:break-all">{{ .ConfirmationURL }}</span></p>
+<p style="margin:18px 0 0;font-size:13px;line-height:20px;color:#5b616c">Si no has sido tú, ignora este correo: no se hará ningún cambio.</p>
+<p style="margin:14px 0 0;font-size:12px;line-height:18px;color:#8a909b">FORJA BETA es una versión de pruebas. Este correo se ha enviado porque alguien usó esta dirección ({{ .Email }}) en FORJA. No respondas a este mensaje para cambiar tu contraseña ni para enviarnos datos personales.</p>
+</td></tr></table></td></tr></table></body></html>

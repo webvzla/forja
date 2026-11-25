@@ -1,6 +1,6 @@
 {
-  "name": "Forja",
-  "short_name": "Forja",
+  "name": "FORJA BETA",
+  "short_name": "FORJA BETA",
   "lang": "es",
   "display": "standalone",
   "orientation": "portrait",
@@ -21,5 +21,5 @@
     }
   ],
   "id": "./",
-  "description": "Rutinas de gym a tu medida, despensa con escáner de tickets, recetas con lo que tienes y retos con amigos."
+  "description": "FORJA BETA: rutinas de gym a tu medida, despensa con escáner de tickets, recetas con lo que tienes y retos con amigos. Versión de pruebas."
 }

@@ -1,0 +1,13 @@
+{
+  "name": "forja-pruebas-supabase",
+  "private": true,
+  "type": "module",
+  "description": "Pruebas de las migraciones (PGlite) y Supabase simulado para pruebas de extremo a extremo. No forma parte de la app.",
+  "scripts": {
+    "sql": "node sql.test.mjs",
+    "simulado": "node servidor-simulado.mjs 54321"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16"
+  }
+}

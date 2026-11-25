@@ -1,12 +1,18 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 // Cuentas, datos en la nube e IA (todo a través de Supabase).
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config';
+import { IA_ACTIVA, SUPABASE_ANON_KEY, SUPABASE_URL } from './config';
 import type { Datos } from './datos';
+import { olvidarArena } from './servidorArena';
+import { esquemaMasNuevo, fusionarDatos } from './fusion';
+import { esErrorEsquema, subirDatos, traerNovedades } from './subida';
 
 export const nubeActiva = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+// La IA necesita la nube (la clave de Gemini vive en el servidor) y que esté activada en config.ts.
+export const iaActiva = nubeActiva && IA_ACTIVA;
 
 export const sb: SupabaseClient | null = nubeActiva
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -15,6 +21,8 @@ export const sb: SupabaseClient | null = nubeActiva
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: Platform.OS === 'web',
+        // PKCE: los enlaces de recuperación traen un código de un solo uso, no la sesión en la URL.
+        flowType: 'pkce',
       },
     })
   : null;
@@ -35,50 +43,125 @@ export function mensajeError(e: unknown) {
   if (/already registered|already exists/i.test(m)) return 'Ya hay una cuenta con ese email. Entra con tu contraseña.';
   if (/not confirmed/i.test(m)) return 'Confirma tu email primero (mira también en spam).';
   if (/rate|too many|security purposes/i.test(m)) return 'Demasiados intentos. Espera unos minutos.';
-  if (/password/i.test(m) && /6/.test(m)) return 'La contraseña debe tener al menos 6 caracteres.';
+  if (/password/i.test(m) && /\d/.test(m)) return 'La contraseña es demasiado corta o débil. Usa al menos 8 caracteres.';
+  if (/captcha/i.test(m)) return 'No se pudo comprobar que eres una persona. Inténtalo de nuevo.';
   return 'No se pudo completar. Revisa tu conexión e inténtalo de nuevo.';
 }
 
 export async function borrarCuenta(): Promise<boolean> {
   if (!sb) return false;
+  const uid = (await usuarioActual())?.id;
   const { error } = await sb.rpc('borrar_mi_cuenta');
   if (error) return false;
-  await sb.auth.signOut();
+  if (uid) await olvidarArena(uid);
+  await sb.auth.signOut({ scope: 'local' });
   return true;
 }
 
 // ---------- Datos ----------
+// Qué versión de la nube tiene incorporada este dispositivo (`actualizado`). Si sigue igual, subir no necesita traer nada.
+// `undefined` = no se sabe todavía (la primera subida trae y fusiona el documento entero).
+let vista: string | null | undefined;
+// Lo último que se leyó de la nube y aún no se ha subido ya fusionado: cada subida lo incorpora, pase lo que pase en la pantalla.
+let porIncorporar: Datos | null = null;
+let bloqueadoPorVersion = false; // la nube tiene datos de una versión más nueva de la app: no se sube nada hasta actualizar
+
+export function olvidarSincronizacion() {
+  vista = undefined;
+  porIncorporar = null;
+  bloqueadoPorVersion = false;
+}
+
 export async function cargarNube(uid: string): Promise<Datos | null | 'error'> {
   if (!sb) return 'error';
-  const { data, error } = await sb.from('datos_usuario').select('datos').eq('user_id', uid).maybeSingle();
+  olvidarSincronizacion();
+  const { data, error } = await sb.from('datos_usuario').select('datos,actualizado').eq('user_id', uid).maybeSingle();
   if (error) return 'error';
-  return (data?.datos as Datos) ?? null;
+  if (!data) return null;
+  vista = (data.actualizado as string | null) ?? null;
+  if (esquemaMasNuevo(data.datos)) bloqueadoPorVersion = true; // datos de una versión más nueva: no se sube nada
+  else porIncorporar = data.datos as Datos;
+  return data.datos as Datos;
 }
 
 let temporizador: ReturnType<typeof setTimeout> | null = null;
 let pendiente: { uid: string; d: Datos } | null = null;
 let escribiendo = false;
-export type EstadoNube = 'guardado' | 'guardando' | 'sin-conexion';
+export type EstadoNube = 'guardado' | 'guardando' | 'sin-conexion' | 'version-antigua';
 let avisar: (e: EstadoNube) => void = () => {};
 export const alCambiarEstado = (f: (e: EstadoNube) => void) => {
   avisar = f;
 };
 
+// Cuando al subir se descubre progreso de otro dispositivo, se avisa a la app para que lo incorpore.
+let alFusionar: (d: Datos) => void = () => {};
+export const alFusionarProgreso = (f: (d: Datos) => void) => {
+  alFusionar = f;
+};
+
 async function volcar() {
   if (!sb || !pendiente || escribiendo) return;
   escribiendo = true;
-  const { uid, d } = pendiente;
+  const { uid } = pendiente;
+  // Lo último que se leyó de la nube se incorpora siempre antes de subir (la fusión no depende del orden).
+  const d = porIncorporar ? fusionarDatos(pendiente.d, porIncorporar) : pendiente.d;
   pendiente = null;
+  if (bloqueadoPorVersion) {
+    avisar('version-antigua');
+    return void (escribiendo = false);
+  }
   avisar('guardando');
-  // El entreno en curso no se sube: cambia cada segundo y solo vive en el móvil.
-  const { error } = await sb
-    .from('datos_usuario')
-    .upsert({ user_id: uid, datos: { ...d, activo: null }, actualizado: new Date().toISOString() }, { onConflict: 'user_id' });
+  // Antes de subir se fusiona el progreso con el de la nube y solo se escribe si nadie ha guardado entre medias
+  // (ver subida.ts): un dispositivo con datos viejos, o dos guardando a la vez, no pisan el progreso de otro.
+  let error: unknown = null;
+  try {
+    const r = await subirDatos(sb, uid, d, 6, vista);
+    if (r.cambio) alFusionar(r.datos);
+    error = r.error;
+    if (esErrorEsquema(r.error)) bloqueadoPorVersion = true;
+    else if (!r.error) {
+      vista = r.actualizado;
+      porIncorporar = null;
+    }
+  } catch (e) {
+    error = e; // fallo de red: se reintenta con el próximo cambio
+  }
   escribiendo = false;
-  avisar(error ? 'sin-conexion' : 'guardado');
-  if (error && !pendiente) pendiente = { uid, d }; // se reintenta con el próximo cambio
+  avisar(bloqueadoPorVersion ? 'version-antigua' : error ? 'sin-conexion' : 'guardado');
+  if (error && !bloqueadoPorVersion && !pendiente) pendiente = { uid, d }; // se reintenta con el próximo cambio
   if (pendiente && !error) volcar();
 }
+
+// Trae lo que hicieron otros dispositivos (sin subir nada) y lo incorpora a la pantalla. Se llama al volver a la app,
+// al recuperar la conexión y cada pocos minutos: así lo que registras en el móvil aparece en el ordenador sin tener que
+// guardar nada allí. Devuelve true si había algo nuevo.
+export async function sincronizarAhora(uid: string): Promise<boolean> {
+  if (!sb || escribiendo || bloqueadoPorVersion) return false;
+  const r = await traerNovedades(sb, uid, vista);
+  if (esErrorEsquema(r.error)) {
+    bloqueadoPorVersion = true;
+    avisar('version-antigua');
+    return false;
+  }
+  if (r.error || !r.datos) return false;
+  vista = r.actualizado;
+  porIncorporar = r.datos;
+  alFusionar(r.datos);
+  return true;
+}
+
+// Sube ya lo pendiente (p. ej. justo antes de cerrar sesión) y espera a que termine.
+export async function volcarYa() {
+  if (temporizador) {
+    clearTimeout(temporizador);
+    temporizador = null;
+  }
+  for (let i = 0; i < 50 && escribiendo; i++) await new Promise((r) => setTimeout(r, 100));
+  await volcar();
+}
+
+// Si un guardado falló sin conexión, se reintenta en cuanto vuelve la red (no hace falta otro cambio).
+if (Platform.OS === 'web' && typeof window !== 'undefined') window.addEventListener('online', () => void volcar());
 
 export function guardarNube(uid: string, d: Datos) {
   pendiente = { uid, d };

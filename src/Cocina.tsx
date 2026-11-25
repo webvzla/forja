@@ -1,3 +1,4 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Datos, Stock, aNumero, claveDia, formatoNum, nuevoId } from './datos';
@@ -8,9 +9,9 @@ import {
 import { NOMBRE_DIA, diaHoy, nutricion } from './reglas';
 import { compartirTexto, elegirArchivo, leerTicket } from './web';
 import { LineaTicket, leerTicketIA, recetaIA, textoError } from './IA';
-import { nubeActiva, usuarioActual } from './nube';
+import { iaActiva, usuarioActual } from './nube';
 import { metaDia, rankingProteina } from './calculos';
-import { Campo, Dialogo, Pildora, Tarjeta, c } from './ui';
+import { Campo, Dialogo, Pildora, Tarjeta, c, tam } from './ui';
 
 type Actualizar = (f: (d: Datos) => Datos) => void;
 export type Preset = { ids: string[]; variante: number; dia: number; comida: number; n: number };
@@ -54,8 +55,8 @@ function FilaStock(p: { s: Stock; onCantidad: (n: number) => void; onCaduca: (f?
       <View style={e.fila}>
         <View style={{ flex: 1 }}>
           <Text style={e.nombre}>{ing.nombre}</Text>
-          {aviso ? <Text style={{ color: c.rojo, fontSize: 13, fontWeight: '700' }}>{aviso}</Text> : null}
-          {seAcaba(p.s) ? <Text style={{ color: c.oro, fontSize: 13, fontWeight: '700' }}>Se está acabando</Text> : null}
+          {aviso ? <Text style={{ color: c.rojo, fontSize: tam(13), fontWeight: '700' }}>{aviso}</Text> : null}
+          {seAcaba(p.s) ? <Text style={{ color: c.oro, fontSize: tam(13), fontWeight: '700' }}>Se está acabando</Text> : null}
         </View>
         <Campo
           accessibilityLabel={`Cantidad de ${ing.nombre}`}
@@ -71,7 +72,7 @@ function FilaStock(p: { s: Stock; onCantidad: (n: number) => void; onCaduca: (f?
         />
         <Text style={e.unidad}>{ing.unidad}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel={`Quitar ${ing.nombre}`} style={e.quitar} onPress={p.onQuitar}>
-          <Text style={{ color: c.rojo, fontSize: 22, fontWeight: '800' }}>×</Text>
+          <Text style={{ color: c.rojo, fontSize: tam(22), fontWeight: '800' }}>×</Text>
         </Pressable>
       </View>
       <View style={e.fila}>
@@ -117,7 +118,7 @@ export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualiza
     const f = await elegirArchivo('image/*');
     if (!f) return;
     // Con cuenta: lo lee la IA (entiende cualquier producto). Si falla, el lector del móvil.
-    if (nubeActiva && (await usuarioActual())) {
+    if (iaActiva && (await usuarioActual())) {
       setEstado('La IA está leyendo tu ticket…');
       try {
         const items = await leerTicketIA(f);
@@ -172,7 +173,7 @@ export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualiza
       {Platform.OS === 'web' ? (
         <Tarjeta>
           <Text style={e.titulo}>Escanea tu ticket</Text>
-          <Text style={e.sub}>{nubeActiva ? 'Foto recta y con buena luz. Con cuenta la lee la IA y reconoce cualquier producto; sin cuenta se lee en tu móvil.' : 'Foto recta y con buena luz. La imagen se lee en tu móvil y no se envía a ningún sitio.'}</Text>
+          <Text style={e.sub}>{iaActiva ? 'Foto recta y con buena luz. Con cuenta la lee la IA y reconoce cualquier producto; sin cuenta se lee en tu móvil.' : 'Foto recta y con buena luz. La imagen se lee en tu móvil y no se envía a ningún sitio.'}</Text>
           <Pildora texto={estado ?? 'Hacer foto del ticket'} deshabilitado={!!estado} onPress={escanear} />
           {error ? <Text style={e.error}>{error}</Text> : null}
         </Tarjeta>
@@ -203,7 +204,7 @@ export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualiza
             {r.slice(0, 5).map((x, k) => (
               <View key={x.id} style={e.entre}>
                 <Text style={e.linea}>{k + 1}. {x.nombre}</Text>
-                <Text style={{ color: k === 0 ? c.verde : c.texto, fontSize: 15, fontWeight: '700' }}>{x.eur100.toFixed(2).replace('.', ',')} € / 100 g prot.</Text>
+                <Text style={{ color: k === 0 ? c.verde : c.texto, fontSize: tam(15), fontWeight: '700' }}>{x.eur100.toFixed(2).replace('.', ',')} € / 100 g prot.</Text>
               </View>
             ))}
             {semana > 0 ? (
@@ -212,7 +213,7 @@ export function Despensa({ datos: d, onActualizar }: { datos: Datos; onActualiza
                 {r.length > 1 ? `; con ${r[r.length - 1].nombre.toLowerCase()}, ${((r[r.length - 1].eur100 * semana) / 100).toFixed(0)} €` : ''}.
               </Text>
             ) : null}
-            <Text style={e.nota}>Con los precios de tus tickets escaneados con IA.</Text>
+            <Text style={e.nota}>Con los precios de tus tickets escaneados.</Text>
           </Tarjeta>
         );
       })()}
@@ -488,7 +489,7 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
           texto={raciones >= 4 ? '🥡 Modo táper activado (4 raciones)' : '🥡 Modo táper: cocinar para 4 días'}
           onPress={() => setRaciones(raciones >= 4 ? 1 : 4)}
         />
-        {nubeActiva ? <Pildora texto={pensando ? 'La IA está cocinando…' : '✨ Receta con IA'} tipo="neutro" deshabilitado={pensando} onPress={() => conIA()} /> : null}
+        {iaActiva ? <Pildora texto={pensando ? 'La IA está cocinando…' : '✨ Receta con IA'} tipo="neutro" deshabilitado={pensando} onPress={() => conIA()} /> : null}
         {aviso ? <Text style={e.error}>{aviso}</Text> : null}
         <Pildora chica tipo="neutro" texto={verPref ? 'Ocultar alergias y gustos' : 'Alergias y gustos'} onPress={() => setVerPref(!verPref)} />
         {verPref ? <PanelPreferencias pref={d.preferencias} onCambio={(preferencias) => onActualizar((x) => ({ ...x, preferencias }))} /> : null}
@@ -505,7 +506,7 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
             <Macro valor={Math.round(receta.g)} texto="grasa" />
           </View>
           <Text style={e.sub}>Por ración{receta.raciones > 1 ? ` · las cantidades son para ${receta.raciones}` : ''}</Text>
-          {receta.nota ? <Text style={{ color: c.oro, fontSize: 15, lineHeight: 21 }}>{receta.nota}</Text> : null}
+          {receta.nota ? <Text style={{ color: c.oro, fontSize: tam(15), lineHeight: tam(21) }}>{receta.nota}</Text> : null}
 
           <View style={e.fila}>
             <Text style={[e.nombre, { flex: 1 }]}>Raciones</Text>
@@ -531,7 +532,7 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
           {receta.lineas.map((l) => (
             <View key={l.ing} style={e.entre}>
               <Text style={e.linea}>{l.nombre}</Text>
-              <Text style={{ color: l.enStock ? c.verde : c.rojo, fontSize: 15, fontWeight: '700' }}>
+              <Text style={{ color: l.enStock ? c.verde : c.rojo, fontSize: tam(15), fontWeight: '700' }}>
                 {textoCantidad(l.cantidad, l.unidad)}{l.enStock ? '' : ' · te falta'}
               </Text>
             </View>
@@ -550,7 +551,7 @@ export function Recetas({ datos: d, onActualizar, preset }: { datos: Datos; onAc
             onPress={() => (deIA ? conIA(`algo distinto a "${deIA.titulo}"`) : setVariante(variante + 1))}
           />
           <Text style={e.nota}>
-            Al pulsar "La hago" se descuenta de tu despensa y se apunta una ración en tu comida de hoy.
+            Al pulsar «La hago» se descuenta de tu despensa y se apunta una ración en tu comida de hoy.
             {receta.raciones > 1 ? ' El resto queda en Sobras.' : ''}
           </Text>
         </Tarjeta>
@@ -635,7 +636,7 @@ export function Menu({ datos: d, onActualizar, onCocinar }: { datos: Datos; onAc
                 <Text style={[e.linea, { fontWeight: '700' }]}>{x.titulo}</Text>
               </View>
               {x.hecha ? (
-                <Text style={{ color: c.verde, fontSize: 15, fontWeight: '800' }}>Hecho ✓</Text>
+                <Text style={{ color: c.verde, fontSize: tam(15), fontWeight: '800' }}>Hecho ✓</Text>
               ) : (
                 <Pildora chica tipo="neutro" texto="Ver" onPress={() => onCocinar({ ids: x.ids, variante: x.variante, dia: i, comida: j, n: Date.now() })} />
               )}
@@ -695,26 +696,26 @@ const Macro = ({ valor, texto }: { valor: number; texto: string }) => (
 
 const e = StyleSheet.create({
   pagina: { padding: 16, gap: 14, paddingBottom: 32 },
-  sub: { color: c.suave, fontSize: 14, lineHeight: 20 },
-  error: { color: c.rojo, fontSize: 15, lineHeight: 21 },
-  titulo: { color: c.texto, fontSize: 18, fontWeight: '800' },
-  receta: { color: c.texto, fontSize: 24, fontWeight: '900' },
-  seccion: { color: c.texto, fontSize: 21, fontWeight: '900', marginTop: 6 },
+  sub: { color: c.suave, fontSize: tam(14), lineHeight: tam(20) },
+  error: { color: c.rojo, fontSize: tam(15), lineHeight: tam(21) },
+  titulo: { color: c.texto, fontSize: tam(18), fontWeight: '800' },
+  receta: { color: c.texto, fontSize: tam(24), fontWeight: '900' },
+  seccion: { color: c.texto, fontSize: tam(21), fontWeight: '900', marginTop: 6 },
   fila: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   entre: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   item: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.tarjeta, borderRadius: 16, paddingLeft: 14, paddingVertical: 6 },
   itemColumna: { backgroundColor: c.tarjeta, borderRadius: 16, paddingLeft: 14, paddingVertical: 8, gap: 6 },
-  nombre: { color: c.texto, fontSize: 16, fontWeight: '800' },
+  nombre: { color: c.texto, fontSize: tam(16), fontWeight: '800' },
   cantidad: { width: 78, textAlign: 'center' },
-  unidad: { color: c.suave, fontSize: 14, width: 24 },
+  unidad: { color: c.suave, fontSize: tam(14), width: 24 },
   quitar: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { backgroundColor: c.campo, borderRadius: 999, paddingHorizontal: 14, minHeight: 42, justifyContent: 'center' },
-  chipTexto: { color: c.texto, fontSize: 15, fontWeight: '700' },
+  chipTexto: { color: c.texto, fontSize: tam(15), fontWeight: '700' },
   racion: { backgroundColor: c.campo, borderRadius: 999, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   macros: { flexDirection: 'row', marginVertical: 4 },
-  valor: { color: c.oro, fontSize: 24, fontWeight: '900' },
-  linea: { color: c.texto, fontSize: 15, lineHeight: 21, flexShrink: 1 },
-  paso: { color: c.texto, fontSize: 16, lineHeight: 23 },
-  nota: { color: c.suave, fontSize: 13, lineHeight: 18 },
+  valor: { color: c.oro, fontSize: tam(24), fontWeight: '900' },
+  linea: { color: c.texto, fontSize: tam(15), lineHeight: tam(21), flexShrink: 1 },
+  paso: { color: c.texto, fontSize: tam(16), lineHeight: tam(23) },
+  nota: { color: c.suave, fontSize: tam(13), lineHeight: tam(18) },
 });

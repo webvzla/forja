@@ -1,3 +1,4 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 // Lógica de: comida según entreno, proteína más barata, mapa muscular, medallas, discos y voz.
 import { Platform } from 'react-native';
 
@@ -144,6 +145,7 @@ export function medallas(d: Datos): Medalla[] {
   return [
     m('e1', '🏁', 'Primer paso', 'Tu primer entreno', n, 1),
     m('e10', '💪', 'Constante', '10 entrenos', n, 10),
+    m('e25', '🏅', 'Comprometido', '25 entrenos', n, 25),
     m('e50', '🏋️', 'Imparable', '50 entrenos', n, 50),
     m('e100', '🦾', 'Leyenda', '100 entrenos', n, 100),
     m('s1', '📅', 'Semana completa', 'Cumple tus días de una semana', sem, 1),

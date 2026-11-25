@@ -1,3 +1,4 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 import { registerRootComponent } from 'expo';
 
 import App from './App';

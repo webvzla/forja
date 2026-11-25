@@ -1,11 +1,11 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Activo, EjercicioActivo, Perfil, Sesion, formatoNum, pesoMaximo, ultimaVez } from './datos';
-import { GUIAS } from './guias';
+import { Activo, EjercicioActivo, Perfil, Sesion, aNumero, formatoNum, pesoMaximo, ultimaVez } from './datos';
+import { FichaEjercicio } from './Academia';
 import { alternativas, pesoSugerido } from './reglas';
-import { Campo, Dialogo, Pildora, Tarjeta, avisoFinDescanso, c, prepararSonido } from './ui';
+import { Campo, Dialogo, Pildora, Tarjeta, avisoFinDescanso, c, prepararSonido, tam } from './ui';
 import { Discos } from './Extras';
-import { aNumero } from './datos';
 import { esConBarra, hablar, hayVoz } from './calculos';
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -21,9 +21,10 @@ export function Entreno(p: {
   onDescartar: () => void;
   voz?: boolean;
   onVoz?: (si: boolean) => void;
+  prudente?: boolean; // molestias marcadas hace poco: no se anima a subir pesos ni repeticiones
 }) {
   const a = p.activo;
-  const [ahora, setAhora] = useState(Date.now());
+  const [ahora, setAhora] = useState(() => Date.now());
   const [dialogo, setDialogo] = useState<'terminar' | 'salir' | null>(null);
   const [guia, setGuia] = useState<string | null>(null);
   const [cambiando, setCambiando] = useState<number | null>(null);
@@ -36,20 +37,15 @@ export function Entreno(p: {
     return () => clearInterval(t);
   }, []);
 
-  // Se cuenta contra una hora de fin, así no se desajusta si el móvil se bloquea.
-  const restante = a.finDescanso ? Math.ceil((a.finDescanso - ahora) / 1000) : null;
-  useEffect(() => {
-    if (restante === null) {
-      avisado.current = false;
-    } else if (restante <= 0 && !avisado.current) {
-      avisado.current = true;
-      avisoFinDescanso();
-      if (p.voz) anunciarSiguiente();
-      setRecienTerminado(true);
-      p.onCambio({ ...a, finDescanso: null });
-      setTimeout(() => setRecienTerminado(false), 3000);
-    }
-  }, [restante]);
+  const referencia = (x: EjercicioActivo, j: number) => {
+    const sug = pesoSugerido(p.sesiones, x.nombre, x.objetivo, x.repsMax);
+    const u = ultimaVez(p.sesiones, x.nombre);
+    const ref = u[j] ?? u[u.length - 1];
+    if (a.descarga && ref) return { peso: formatoNum(Math.round((ref.peso * 0.85) / 2.5) * 2.5), reps: String(ref.reps) };
+    if (!p.prudente && sug?.sube) return { peso: formatoNum(sug.peso), reps: String(x.objetivo) };
+    if (!p.prudente && sug?.reps) return { peso: '0', reps: String(sug.reps) };
+    return ref ? { peso: formatoNum(ref.peso), reps: String(ref.reps) } : { peso: '0', reps: String(x.objetivo) };
+  };
 
   // Coach por voz: dice cuál es la siguiente serie al acabar el descanso.
   function anunciarSiguiente() {
@@ -65,19 +61,26 @@ export function Entreno(p: {
     }
     hablar('Fin del descanso. Has terminado todas las series, ¡buen trabajo!');
   }
+  // Se cuenta contra una hora de fin, así no se desajusta si el móvil se bloquea.
+  const restante = a.finDescanso ? Math.ceil((a.finDescanso - ahora) / 1000) : null;
+  useEffect(() => {
+    if (restante === null) {
+      avisado.current = false;
+    } else if (restante <= 0 && !avisado.current) {
+      avisado.current = true;
+      avisoFinDescanso();
+      if (p.voz) anunciarSiguiente();
+      setRecienTerminado(true);
+      p.onCambio({ ...a, finDescanso: null });
+      setTimeout(() => setRecienTerminado(false), 3000);
+    }
+  }, [restante]);
+
+
 
   const hechas = a.ejercicios.reduce((n, x) => n + x.series.filter((s) => s.hecha).length, 0);
   const total = a.ejercicios.reduce((n, x) => n + x.series.length, 0);
 
-  const referencia = (x: EjercicioActivo, j: number) => {
-    const sug = pesoSugerido(p.sesiones, x.nombre, x.objetivo, x.repsMax);
-    const u = ultimaVez(p.sesiones, x.nombre);
-    const ref = u[j] ?? u[u.length - 1];
-    if (a.descarga && ref) return { peso: formatoNum(Math.round((ref.peso * 0.85) / 2.5) * 2.5), reps: String(ref.reps) };
-    if (sug?.sube) return { peso: formatoNum(sug.peso), reps: String(x.objetivo) };
-    if (sug?.reps) return { peso: '0', reps: String(sug.reps) };
-    return ref ? { peso: formatoNum(ref.peso), reps: String(ref.reps) } : { peso: '0', reps: String(x.objetivo) };
-  };
 
   const editarSerie = (i: number, j: number, cambio: object) =>
     p.onCambio({
@@ -146,7 +149,7 @@ export function Entreno(p: {
     <View style={{ flex: 1 }}>
       <View style={e.cabecera}>
         <View style={{ flex: 1 }}>
-          <Text style={e.titulo} numberOfLines={1}>{a.rutinaNombre}</Text>
+          <Text style={e.titulo} numberOfLines={2}>{a.rutinaNombre}</Text>
           <Text style={e.sub}>{hechas} de {total} series · {mmss(Math.floor((ahora - a.inicio) / 1000))}</Text>
         </View>
         {hayVoz() && p.onVoz ? (
@@ -161,7 +164,7 @@ export function Entreno(p: {
             }}
             style={[e.voz, p.voz && { backgroundColor: c.oro }]}
           >
-            <Text style={{ fontSize: 20 }}>{p.voz ? '🔊' : '🔇'}</Text>
+            <Text style={{ fontSize: tam(20) }}>{p.voz ? '🔊' : '🔇'}</Text>
           </Pressable>
         ) : null}
         <Pildora chica texto="Terminar" onPress={() => setDialogo('terminar')} />
@@ -192,11 +195,9 @@ export function Entreno(p: {
             <Tarjeta key={i}>
               <Text style={e.ejercicio}>{x.nombre}</Text>
               <View style={e.fila}>
-                {GUIAS[x.nombre] ? (
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Cómo se hace ${x.nombre}`} style={e.enlace} onPress={() => setGuia(x.nombre)}>
-                    <Text style={e.enlaceTexto}>Cómo se hace</Text>
-                  </Pressable>
-                ) : null}
+                <Pressable accessibilityRole="button" accessibilityLabel={`Cómo se hace ${x.nombre}`} style={e.enlace} onPress={() => setGuia(x.nombre)}>
+                  <Text style={e.enlaceTexto}>Cómo se hace</Text>
+                </Pressable>
                 {esConBarra(x.nombre) ? (
                   <Pressable
                     accessibilityRole="button"
@@ -221,8 +222,8 @@ export function Entreno(p: {
                   ? `Última vez: ${u.map((s) => `${formatoNum(s.peso)}×${formatoNum(s.reps)}`).join('  ')}`
                   : `Primera vez · objetivo ${objetivo} reps`}
               </Text>
-              {!a.descarga && sug?.sube ? <Text style={e.sube}>Hoy sube a {formatoNum(sug.peso)} kg</Text> : null}
-              {!a.descarga && sug?.reps ? <Text style={e.sube}>Hoy intenta {sug.reps} repeticiones</Text> : null}
+              {!a.descarga && !p.prudente && sug?.sube ? <Text style={e.sube}>Hoy sube a {formatoNum(sug.peso)} kg</Text> : null}
+              {!a.descarga && !p.prudente && sug?.reps ? <Text style={e.sube}>Hoy intenta {sug.reps} repeticiones</Text> : null}
               <View style={e.fila}>
                 <Text style={[e.col, e.colN]}>#</Text>
                 <Text style={[e.col, { flex: 1 }]}>kg</Text>
@@ -257,7 +258,7 @@ export function Entreno(p: {
                       onPress={() => marcar(i, j)}
                       style={[e.check, s.hecha && e.checkHecho]}
                     >
-                      <Text style={{ color: s.hecha ? '#07281A' : c.suave, fontSize: 20, fontWeight: '900' }}>✓</Text>
+                      <Text style={{ color: s.hecha ? (c.oscuro ? '#07281A' : '#FFFFFF') : c.suave, fontSize: tam(20), fontWeight: '900' }}>✓</Text>
                     </Pressable>
                   </View>
                 );
@@ -306,12 +307,7 @@ export function Entreno(p: {
         </View>
       ) : null}
 
-      {guia ? (
-        <Dialogo titulo={guia} si="Entendido" onSi={() => setGuia(null)}>
-          <Text style={e.guia}>{GUIAS[guia].como}</Text>
-          <Text style={[e.guia, { color: c.oro }]}>Error típico: {GUIAS[guia].error}</Text>
-        </Dialogo>
-      ) : null}
+      {guia ? <FichaEjercicio nombre={guia} onCerrar={() => setGuia(null)} /> : null}
       {cambiando !== null ? (
         <Dialogo titulo="Cambiar por" mensaje="Solo para este entreno: tu rutina no cambia." si="Cancelar" onSi={() => setCambiando(null)}>
           <View style={{ gap: 8 }}>
@@ -362,26 +358,25 @@ export function Entreno(p: {
 const e = StyleSheet.create({
   voz: { width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.campo, marginRight: 8 },
   cabecera: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderBottomWidth: 1, borderBottomColor: c.borde },
-  titulo: { color: c.texto, fontSize: 26, fontWeight: '900' },
-  sub: { color: c.suave, fontSize: 15, lineHeight: 21 },
+  titulo: { color: c.texto, fontSize: tam(26), fontWeight: '900' },
+  sub: { color: c.suave, fontSize: tam(15), lineHeight: tam(21) },
   pagina: { padding: 16, gap: 14, paddingBottom: 40 },
-  ejercicio: { color: c.texto, fontSize: 20, fontWeight: '800' },
-  sube: { color: c.oro, fontSize: 15, fontWeight: '800' },
+  ejercicio: { color: c.texto, fontSize: tam(20), fontWeight: '800' },
+  sube: { color: c.oro, fontSize: tam(15), fontWeight: '800' },
   enlace: { minHeight: 44, justifyContent: 'center', paddingRight: 14 },
-  enlaceTexto: { color: c.oro, fontSize: 15, fontWeight: '700' },
-  guia: { color: c.texto, fontSize: 16, lineHeight: 23 },
+  enlaceTexto: { color: c.oro, fontSize: tam(15), fontWeight: '700' },
   fila: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  col: { color: c.suave, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  col: { color: c.suave, fontSize: tam(13), fontWeight: '700', textAlign: 'center' },
   colN: { width: 26, textAlign: 'center' },
-  num: { color: c.suave, fontSize: 17, fontWeight: '800' },
-  dato: { flex: 1, minWidth: 0, textAlign: 'center', fontSize: 18, fontWeight: '700' },
-  datoHecho: { backgroundColor: 'rgba(91,214,160,.14)' },
+  num: { color: c.suave, fontSize: tam(17), fontWeight: '800' },
+  dato: { flex: 1, minWidth: 0, textAlign: 'center', fontSize: tam(18), fontWeight: '700' },
+  datoHecho: { backgroundColor: c.oscuro ? 'rgba(91,214,160,.14)' : 'rgba(20,122,78,.10)' },
   check: { width: 48, height: 44, borderRadius: 12, backgroundColor: c.campo, alignItems: 'center', justifyContent: 'center' },
   checkHecho: { backgroundColor: c.verde },
   descanso: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.oro, paddingHorizontal: 12, paddingVertical: 10, gap: 4, minHeight: 72 },
-  cuenta: { color: c.sobreOro, fontSize: 30, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  descansoSub: { color: c.sobreOro, fontSize: 13, fontWeight: '700' },
+  cuenta: { color: c.sobreOro, fontSize: tam(30), fontWeight: '900', fontVariant: ['tabular-nums'] },
+  descansoSub: { color: c.sobreOro, fontSize: tam(13), fontWeight: '700' },
   ajuste: { minWidth: 56, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
-  ajusteTexto: { color: c.sobreOro, fontSize: 16, fontWeight: '800' },
-  fin: { flex: 1, textAlign: 'center', color: '#07281A', fontSize: 22, fontWeight: '900' },
+  ajusteTexto: { color: c.sobreOro, fontSize: tam(16), fontWeight: '800' },
+  fin: { flex: 1, textAlign: 'center', color: c.oscuro ? '#07281A' : '#FFFFFF', fontSize: tam(22), fontWeight: '900' },
 });

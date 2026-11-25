@@ -1,3 +1,4 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 // Funciones que solo existen en la versión web instalable.
 const TESSERACT = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
 

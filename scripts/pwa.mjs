@@ -1,5 +1,11 @@
-// Tras `expo export`: genera el service worker con la lista real de archivos
-// y añade .nojekyll (GitHub Pages ignoraría la carpeta _expo sin él).
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
+// Tras `expo export`: genera el service worker con la lista real de archivos, `version.json` (para el aviso de «hay una
+// versión nueva») y añade .nojekyll (GitHub Pages ignoraría la carpeta _expo sin él).
+//
+// Importante (probado con scripts/pruebas/sustitucion-web.mjs): GitHub Pages sirve sus archivos con `max-age=600`, así que
+// el navegador puede tener en su caché HTTP una portada ANTIGUA hasta 10 minutos. Por eso el service worker descarga sus
+// archivos con `cache: 'reload'` (si no, guardaría la portada vieja para el modo sin conexión) y pide la portada con
+// `cache: 'no-cache'` (siempre comprueba si hay una nueva).
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -12,7 +18,7 @@ const lista = (dir) =>
 
 const archivos = lista(dist)
   .map((f) => relative(dist, f).split(sep).join('/'))
-  .filter((f) => f !== 'sw.js' && f !== '.nojekyll' && !f.endsWith('.map'))
+  .filter((f) => f !== 'sw.js' && f !== 'version.json' && f !== '.nojekyll' && !f.endsWith('.map'))
   .sort();
 
 const huella = createHash('sha256');
@@ -23,7 +29,8 @@ const sw = `const CACHE = ${JSON.stringify(version)};
 const ARCHIVOS = ${JSON.stringify(['./', ...archivos.map((f) => `./${f}`)])};
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));
+  // cache: 'reload' salta la caché HTTP del navegador: así no se guarda una copia antigua de la portada.
+  e.waitUntil(caches.open(CACHE).then((c) => Promise.all(ARCHIVOS.map((u) => fetch(new Request(u, { cache: 'reload' })).then((r) => { if (!r.ok) throw new Error(u); return c.put(u, r); })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -37,8 +44,9 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  if (url.pathname.endsWith('/version.json')) return; // siempre de la red: es el aviso de versión nueva
   if (e.request.mode === 'navigate') {
-    e.respondWith(fetch(e.request).catch(() => caches.match('./')));
+    e.respondWith(fetch(e.request.url, { cache: 'no-cache' }).catch(() => caches.match('./')));
     return;
   }
   e.respondWith(caches.match(e.request, { ignoreSearch: true }).then((r) => r || fetch(e.request)));
@@ -46,5 +54,7 @@ self.addEventListener('fetch', (e) => {
 `;
 
 writeFileSync(join(dist, 'sw.js'), sw);
+const app = JSON.parse(readFileSync('app.json', 'utf8')).expo;
+writeFileSync(join(dist, 'version.json'), JSON.stringify({ version: app.version, minima: app.extra?.versionMinima ?? app.version, generado: new Date().toISOString() }) + '\n');
 writeFileSync(join(dist, '.nojekyll'), '');
 console.log(`Service worker ${version}: ${archivos.length} archivos`);

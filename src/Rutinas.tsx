@@ -1,9 +1,13 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Rutina, nuevoId } from './datos';
-import { Campo, Dialogo, Pildora, Tarjeta, Titulo, c } from './ui';
+import { Datos, Rutina, nuevoId } from './datos';
+import { EntradaDificultad } from './Dificultad';
+import { Campo, Dialogo, Pildora, Tarjeta, Titulo, c, tam } from './ui';
 
 export function Rutinas(p: {
+  d: Datos;
+  onActualizar: (f: (d: Datos) => Datos) => void;
   rutinas: Rutina[];
   onEmpezar: (r: Rutina) => void;
   onGuardar: (r: Rutina) => void;
@@ -31,10 +35,11 @@ export function Rutinas(p: {
   return (
     <ScrollView contentContainerStyle={e.pagina}>
       <Titulo>Mis rutinas</Titulo>
+      <EntradaDificultad d={p.d} onActualizar={p.onActualizar} />
       {p.rutinas.map((r) => (
         <Tarjeta key={r.id}>
           <Text style={e.nombre}>{r.nombre}</Text>
-          {r.deCoach ? <Text style={{ color: c.oro, fontSize: 14, fontWeight: '800' }}>Plan del coach</Text> : null}
+          {r.deCoach ? <Text style={{ color: c.oro, fontSize: tam(14), fontWeight: '800' }}>Plan del coach{r.personalizada ? ' · editada por ti (no se toca)' : ''}</Text> : null}
           <Text style={e.detalle}>{r.ejercicios.map((x) => x.nombre).join(' · ')}</Text>
           <View style={e.fila}>
             <View style={{ flex: 1 }}>
@@ -100,7 +105,7 @@ function Editor(p: {
               style={e.quitar}
               onPress={() => setR({ ...r, ejercicios: r.ejercicios.filter((y) => y.id !== x.id) })}
             >
-              <Text style={{ color: c.rojo, fontSize: 22, fontWeight: '800' }}>×</Text>
+              <Text style={{ color: c.rojo, fontSize: tam(22), fontWeight: '800' }}>×</Text>
             </Pressable>
           </View>
           <View style={e.fila}>
@@ -165,10 +170,10 @@ function Editor(p: {
 
 const e = StyleSheet.create({
   pagina: { padding: 16, gap: 14, paddingBottom: 32 },
-  nombre: { color: c.texto, fontSize: 24, fontWeight: '900' },
-  detalle: { color: c.suave, fontSize: 15, lineHeight: 21 },
+  nombre: { color: c.texto, fontSize: tam(24), fontWeight: '900' },
+  detalle: { color: c.suave, fontSize: tam(15), lineHeight: tam(21) },
   fila: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  etiqueta: { color: c.suave, fontSize: 15 },
+  etiqueta: { color: c.suave, fontSize: tam(15) },
   numero: { width: 62, textAlign: 'center' },
   quitar: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 });

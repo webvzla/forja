@@ -1,3 +1,4 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { DiaMenu, Ingrediente, Preferencias } from './alimentos';
@@ -8,6 +9,7 @@ export type Rutina = {
   nombre: string;
   ejercicios: Ejercicio[];
   deCoach?: boolean;
+  personalizada?: boolean; // una rutina del coach que has editado tú: la revisión y los cambios de dificultad no la tocan
   ejemplo?: boolean;
   dia?: number; // 0 = lunes
 };
@@ -26,7 +28,9 @@ export type Perfil = {
   dias: number;
   diasSemana: number[]; // 0 = lunes
   descargaHasta?: number | null;
-  nivel: Nivel;
+  nivel: Nivel; // experiencia deportiva (tu propia valoración)
+  dificultad?: Nivel; // exigencia del entrenamiento que eliges; independiente de `nivel` (ver `dificultadDe`)
+  dificultadConfirmada?: boolean; // true cuando la has elegido tú (si no, es solo un punto de partida y se te pregunta antes de rehacer el plan)
   equipo: Equipo;
   enfasis: Enfasis | Enfasis[]; // antes era una sola zona; ahora hasta 3
   ajusteKcal: number;
@@ -53,7 +57,12 @@ export type Sesion = {
   minutos: number;
   descarga?: boolean;
   ejercicios: { nombre: string; series: SerieGuardada[] }[];
+  // Opcional: cómo te sentó el entreno. Solo vive en tu cuenta (no se comparte) y solo sirve para orientarte.
+  sensacion?: Sensacion;
+  dolor?: boolean; // «me dolió algo»
+  permiso?: number; // momento del consentimiento bajo el que se respondió (ver consentimientos.ts)
 };
+export type Sensacion = 'facil' | 'bien' | 'duro';
 
 export type Datos = {
   rutinas: Rutina[];
@@ -75,7 +84,28 @@ export type Datos = {
   precios: Record<string, { euros: number; cantidad: number; fecha: number }>; // último precio pagado por alimento
   voz: boolean; // coach por voz durante el entreno
   medallasVistas: string[];
+  // Misiones del día que has omitido o marcado a mano, por día (AAAA-MM-DD). Solo se guardan los
+  // últimos 14 días. El resto (entreno, proteína…) se deduce de tus datos y no se guarda.
+  misiones?: { omitidas: Record<string, string[]>; hechas: Record<string, string[]> };
+  ajustes?: {
+    apariencia?: import('./tema').Apariencia; // se sincroniza con la cuenta
+    inicio?: { ocultas: string[] };
+    arena?: import('./competicion').PreferenciasArena;
+    xp?: import('./xp').LibroXp; // semanas ya cerradas para el XP (no se recalculan)
+    // Recomendaciones de dificultad: cuándo cambiaste por última vez y hasta cuándo has pedido no verlas.
+    dificultad?: { cambio?: number; silenciarHasta?: number };
+    // Marcas de cambio y lápidas para fusionar los datos entre dispositivos sin perder nada (ver fusion.ts).
+    sync?: import('./fusion').LibroSync;
+    // Decisiones de consentimiento opcionales y revocables (ver consentimientos.ts).
+    consentimientos?: { sensaciones?: { valor: boolean; v: number; ts: number; retirado?: number } };
+  };
 };
+
+// Dificultad del entrenamiento. Independiente del nivel físico: cambiar una no cambia la otra.
+// Punto de partida cuando nunca has elegido dificultad: igual que tu nivel físico, salvo «avanzado», que empieza en Media:
+// nadie recibe «Exigente» sin elegirla. Así quien ya tenía plan antes de existir la dificultad lo conserva igual.
+export const dificultadPorDefecto = (nivel: Nivel): Nivel => (nivel === 'avanzado' ? 'intermedio' : nivel);
+export const dificultadDe = (p: Pick<Perfil, 'nivel' | 'dificultad'>): Nivel => p.dificultad ?? dificultadPorDefecto(p.nivel);
 
 export type Nivel3 = 0 | 1 | 2; // 0 mal · 1 regular · 2 bien
 
@@ -159,8 +189,38 @@ export const datosIniciales = (): Datos => ({
   medallasVistas: [],
 });
 
+// Primera vez que se abre la beta en este dispositivo: antes de que la beta escriba nada, se guarda una copia EXACTA de lo que
+// había (clave aparte, no se toca nunca más) y se anota para dar la bienvenida una sola vez.
+const COPIA_PREVIA = `${CLAVE}:copia-pre-beta`;
+const MARCA_BETA = 'mi-gym:beta-v1';
+export const copiaPreBeta = () => AsyncStorage.getItem(COPIA_PREVIA).catch(() => null);
+export async function bienvenidaBeta(): Promise<{ conDatos: boolean } | null> {
+  try {
+    const m = JSON.parse((await AsyncStorage.getItem(MARCA_BETA)) ?? 'null');
+    return m && m.visto === false ? { conDatos: !!m.conDatos } : null;
+  } catch {
+    return null;
+  }
+}
+export const marcarBienvenidaVista = async () => {
+  try {
+    const m = JSON.parse((await AsyncStorage.getItem(MARCA_BETA)) ?? 'null') ?? {};
+    await AsyncStorage.setItem(MARCA_BETA, JSON.stringify({ ...m, visto: true }));
+  } catch {
+    /* sin almacenamiento: no pasa nada */
+  }
+};
+
 export async function cargar(): Promise<Datos> {
   const texto = await AsyncStorage.getItem(CLAVE);
+  try {
+    if ((await AsyncStorage.getItem(MARCA_BETA)) === null) {
+      if (texto) await AsyncStorage.setItem(COPIA_PREVIA, texto);
+      await AsyncStorage.setItem(MARCA_BETA, JSON.stringify({ v: 1, fecha: Date.now(), conDatos: !!texto, visto: false }));
+    }
+  } catch {
+    /* si no se puede guardar la copia, se sigue: los datos originales no se tocan */
+  }
   if (!texto) return datosIniciales();
   try {
     return { ...datosIniciales(), ...JSON.parse(texto) };

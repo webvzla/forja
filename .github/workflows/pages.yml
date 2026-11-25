@@ -21,6 +21,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:web
+        env:
+          # Valores PÚBLICOS (van dentro de la web): proyecto forja-prod y su clave publicable. Nunca poner aquí claves secretas.
+          EXPO_PUBLIC_SUPABASE_URL: https://pgqqghsxjsgeuhvcutlm.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_QESduzAig2zwgNLUU68p6g_XrcOdmoR
+          # Titular y contacto de los textos legales: se leen de las variables del repositorio (no se escriben aquí).
+          EXPO_PUBLIC_TITULAR: ${{ vars.EXPO_PUBLIC_TITULAR }}
+          EXPO_PUBLIC_CORREO_CONTACTO: ${{ vars.EXPO_PUBLIC_CORREO_CONTACTO }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

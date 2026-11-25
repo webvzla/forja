@@ -1,8 +1,9 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 // Botón para instalar Forja como app (Chrome en Android y ordenador) y guía para iPhone.
 import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text } from 'react-native';
 
-import { Dialogo, Pildora, Tarjeta, c } from './ui';
+import { Dialogo, Pildora, Tarjeta, c, tam } from './ui';
 
 const yaInstalada = () =>
   Platform.OS !== 'web' || window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true;
@@ -62,8 +63,8 @@ export function Instalar() {
       {guia ? (
         <Dialogo titulo="Instalar en iPhone" si="Entendido" onSi={() => setGuia(false)}>
           <Text style={e.paso}>1. Pulsa el botón Compartir (el cuadrado con la flecha hacia arriba ⬆️). En Safari está abajo; en Chrome, arriba a la derecha.</Text>
-          <Text style={e.paso}>2. Baja y elige "Añadir a pantalla de inicio".</Text>
-          <Text style={e.paso}>3. Pulsa "Añadir". Forja aparecerá con su icono junto al resto de tus apps.</Text>
+          <Text style={e.paso}>2. Baja y elige «Añadir a pantalla de inicio».</Text>
+          <Text style={e.paso}>3. Pulsa «Añadir». Forja aparecerá con su icono junto al resto de tus apps.</Text>
         </Dialogo>
       ) : null}
     </Tarjeta>
@@ -71,7 +72,7 @@ export function Instalar() {
 }
 
 const e = StyleSheet.create({
-  titulo: { color: c.texto, fontSize: 19, fontWeight: '900' },
-  sub: { color: c.suave, fontSize: 15, lineHeight: 21 },
-  paso: { color: c.texto, fontSize: 16, lineHeight: 23 },
+  titulo: { color: c.texto, fontSize: tam(19), fontWeight: '900' },
+  sub: { color: c.suave, fontSize: tam(15), lineHeight: tam(21) },
+  paso: { color: c.texto, fontSize: tam(16), lineHeight: tam(23) },
 });

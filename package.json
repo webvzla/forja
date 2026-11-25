@@ -16,6 +16,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "^58.0.4",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -23,7 +25,12 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:web": "expo export -p web && node scripts/pwa.mjs"
+    "build:web": "expo export -p web && node scripts/pwa.mjs",
+    "lanzamiento": "node scripts/lanzamiento.mjs",
+    "comprobar": "node scripts/nombres.mjs && node scripts/secretos.mjs && node scripts/academia.mjs && tsc --noEmit && eslint .",
+    "huellas": "node scripts/huellas.mjs",
+    "evidencias": "node scripts/evidencias.mjs",
+    "terceros": "node scripts/terceros.mjs"
   },
   "private": true
 }

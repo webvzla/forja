@@ -39,3 +39,26 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# dependencias solo de las pruebas de Supabase
+supabase/pruebas/node_modules
+
+# secretos y credenciales (nunca en Git)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+service-account*.json
+supabase/.temp/
+supabase/.branches/
+
+# paquetes de evidencias (grandes; se guardan fuera de Git)
+evidencias/
+
+# caché de Python
+__pycache__/
+
+# compilaciones de prueba
+dist-*/

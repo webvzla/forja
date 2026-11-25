@@ -1,12 +1,13 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Comida as ItemComida, Datos, aNumero, claveDia, nuevoId } from './datos';
-import { ALIMENTOS, nutricion } from './reglas';
+import { Comida as ItemComida, Datos, aNumero, claveDia, nuevoId, formatoNum } from './datos';
+import { ALIMENTOS } from './reglas';
 import { Despensa, Menu, Preset, Recetas } from './Cocina';
-import { Campo, Pildora, Tarjeta, Titulo, c } from './ui';
+import { Campo, Pildora, Tarjeta, Titulo, c, tam } from './ui';
 import { FotoPlato } from './IA';
 import { metaDia, textoMetaDia } from './calculos';
-import { nubeActiva } from './nube';
+import { iaActiva } from './nube';
 
 type Vista = 'hoy' | 'despensa' | 'recetas' | 'menu';
 
@@ -119,7 +120,7 @@ function Hoy(p: {
           <Text style={e.cifra}>{Math.round(totalK)}{meta ? ` / ${meta.kcal}` : ''} kcal</Text>
         </View>
         <Barra valor={totalK} meta={meta?.kcal ?? 0} color={c.verde} />
-        {meta ? <Text style={{ color: c.oro, fontSize: 14, lineHeight: 20 }}>{meta.tipo === 'descanso' ? '😴 ' : meta.tipo === 'pierna' ? '🦵 ' : '💪 '}{textoMetaDia(meta)}</Text> : null}
+        {meta ? <Text style={{ color: c.oro, fontSize: tam(14), lineHeight: tam(20) }}>{meta.tipo === 'descanso' ? '😴 ' : meta.tipo === 'pierna' ? '🦵 ' : '💪 '}{textoMetaDia(meta)}</Text> : null}
         <Text style={e.sub}>
           {!meta
             ? 'Completa tu perfil en Coach para ver tus metas.'
@@ -137,7 +138,7 @@ function Hoy(p: {
       <Tarjeta>
         <View style={e.entre}>
           <Text style={e.rotulo}>Agua</Text>
-          <Text style={e.cifra}>{(agua / 1000).toFixed(2).replace('.', ',')} / {(metaAgua / 1000).toFixed(2).replace('.', ',')} l</Text>
+          <Text style={e.cifra}>{formatoNum(agua / 1000)} / {formatoNum(metaAgua / 1000)} l</Text>
         </View>
         <Barra valor={agua} meta={metaAgua} color="#6FB7FF" />
         <View style={e.fila}>
@@ -147,7 +148,7 @@ function Hoy(p: {
         </View>
       </Tarjeta>
 
-      {nubeActiva && Platform.OS === 'web' ? <FotoPlato onAnadir={anadir} /> : null}
+      {iaActiva && Platform.OS === 'web' ? <FotoPlato onAnadir={anadir} /> : null}
 
       {hace === 0 && d.sobras.length ? <Text style={e.seccion}>Sobras</Text> : null}
       {hace === 0
@@ -159,9 +160,9 @@ function Hoy(p: {
                 {(() => {
                   const dias = Math.floor((Date.now() - s.fecha) / 86400000);
                   return dias >= 4 ? (
-                    <Text style={{ color: c.rojo, fontSize: 14, fontWeight: '700' }}>Hecho hace {dias} días: si no lo congelaste, mejor tíralo</Text>
+                    <Text style={{ color: c.rojo, fontSize: tam(14), fontWeight: '700' }}>Hecho hace {dias} días: si no lo congelaste, mejor tíralo</Text>
                   ) : dias === 3 ? (
-                    <Text style={{ color: c.oro, fontSize: 14, fontWeight: '700' }}>Hecho hace 3 días: cómelo hoy</Text>
+                    <Text style={{ color: c.oro, fontSize: tam(14), fontWeight: '700' }}>Hecho hace 3 días: cómelo hoy</Text>
                   ) : null;
                 })()}
               </View>
@@ -177,7 +178,7 @@ function Hoy(p: {
                 }
               />
               <Pressable accessibilityRole="button" accessibilityLabel={`Tirar ${s.titulo}`} style={e.quitar} onPress={() => p.onActualizar((x) => ({ ...x, sobras: x.sobras.filter((y) => y.id !== s.id) }))}>
-                <Text style={{ color: c.rojo, fontSize: 22, fontWeight: '800' }}>×</Text>
+                <Text style={{ color: c.rojo, fontSize: tam(22), fontWeight: '800' }}>×</Text>
               </Pressable>
             </View>
           ))
@@ -233,7 +234,7 @@ function Hoy(p: {
             style={e.quitar}
             onPress={() => p.onCambio(dia, items.filter((y) => y.id !== x.id))}
           >
-            <Text style={{ color: c.rojo, fontSize: 22, fontWeight: '800' }}>×</Text>
+            <Text style={{ color: c.rojo, fontSize: tam(22), fontWeight: '800' }}>×</Text>
           </Pressable>
         </View>
       ))}
@@ -244,19 +245,19 @@ function Hoy(p: {
 const e = StyleSheet.create({
   segmento: { flexDirection: 'row', gap: 2, paddingHorizontal: 12, paddingTop: 10 },
   opcion: { flex: 1, minHeight: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  opcionTexto: { color: c.suave, fontSize: 14, fontWeight: '800' },
+  opcionTexto: { color: c.suave, fontSize: tam(14), fontWeight: '800' },
   pagina: { padding: 16, gap: 14, paddingBottom: 32 },
-  sub: { color: c.suave, fontSize: 14, lineHeight: 20 },
+  sub: { color: c.suave, fontSize: tam(14), lineHeight: tam(20) },
   entre: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  rotulo: { color: c.texto, fontSize: 16, fontWeight: '800' },
-  cifra: { color: c.oro, fontSize: 18, fontWeight: '900' },
+  rotulo: { color: c.texto, fontSize: tam(16), fontWeight: '800' },
+  cifra: { color: c.oro, fontSize: tam(18), fontWeight: '900' },
   barra: { height: 10, borderRadius: 999, backgroundColor: c.campo, overflow: 'hidden' },
-  seccion: { color: c.texto, fontSize: 21, fontWeight: '900', marginTop: 6 },
+  seccion: { color: c.texto, fontSize: tam(21), fontWeight: '900', marginTop: 6 },
   rejilla: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   alimento: { backgroundColor: c.tarjeta, borderRadius: 16, padding: 12, flexBasis: '48%', flexGrow: 1, minHeight: 66, justifyContent: 'center' },
-  alimentoNombre: { color: c.texto, fontSize: 15, fontWeight: '800' },
+  alimentoNombre: { color: c.texto, fontSize: tam(15), fontWeight: '800' },
   fila: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   item: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.tarjeta, borderRadius: 16, paddingLeft: 14, paddingVertical: 8 },
   quitar: { width: 48, height: 44, alignItems: 'center', justifyContent: 'center' },
-  nota: { color: c.suave, fontSize: 13 },
+  nota: { color: c.suave, fontSize: tam(13) },
 });

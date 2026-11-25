@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Forja",
+    "name": "FORJA BETA",
     "slug": "forja",
-    "version": "1.0.0",
+    "version": "1.0.0-beta.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -12,7 +12,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0E0F13",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -23,6 +23,9 @@
       "bundler": "metro",
       "output": "single",
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "versionMinima": "1.0.0-beta.1"
     },
     "experiments": {
       "baseUrl": "/forja"

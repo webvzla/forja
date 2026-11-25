@@ -1,14 +1,21 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { elegirArchivo, exportarCopia } from './web';
 import { ChatCoach } from './IA';
-import type { EstadoNube } from './nube';
+import { iaActiva, type EstadoNube } from './nube';
 import { EnlacePrivacidad } from './Privacidad';
 import { Instalar } from './Instalar';
+import { Ajustes } from './Ajustes';
+import { EtiquetaBeta } from './Beta';
 import { Datos, Enfasis, Equipo, Nivel, Objetivo, Perfil, Rutina, aNumero, formatoNum, zonas } from './datos';
 import { NOMBRE_DIA, ajustarPlan, diaHoy, inicioSemana, nutricion, revisar, TEXTO_OBJETIVO, adaptarRutina, incompatibles, objetivos, textoObjetivo } from './reglas';
 import { Grafica } from './Progreso';
-import { Campo, Dialogo, Pildora, Tarjeta, Titulo, c } from './ui';
+import { TarjetaAtleta } from './Atleta';
+import { ElegirDificultadInicial, TarjetaDificultad } from './Dificultad';
+import { fijarDificultad, requiereElegirDificultad } from './niveles';
+import { dolorReciente } from './adaptacion';
+import { Campo, Dialogo, Pildora, Tarjeta, Titulo, c, tam } from './ui';
 
 function Opciones<T extends string | number>(p: {
   titulo: string;
@@ -64,6 +71,7 @@ function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void;
   const [enfasis, setEnfasis] = useState<Enfasis[]>(zonas(i));
   const [avisoZonas, setAvisoZonas] = useState('');
   const [error, setError] = useState('');
+  const [eligiendo, setEligiendo] = useState<Perfil | null>(null);
 
   const guardar = () => {
     const ed = aNumero(edad);
@@ -73,16 +81,28 @@ function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void;
     if (al < 120 || al > 230) return setError('Pon tu altura en centímetros, por ejemplo 175.');
     if (pe < 30 || pe > 250) return setError('Pon tu peso en kilos, por ejemplo 78.');
     if (diasSemana.length < 2 || diasSemana.length > 6) return setError('Elige entre 2 y 6 días para entrenar.');
-    p.onGuardar({
+    // La dificultad se fija aquí: cambiar el nivel físico no la cambia sola. Si el cambio rehace el plan y nunca la has
+    // elegido, se te pregunta antes (nunca se asume «Exigente» por ser nivel avanzado).
+    const nuevo = fijarDificultad(i, {
       sexo, edad: Math.round(ed), altura: Math.round(al), peso: pe, objetivo, objetivo2: metas[1] ?? null, dias: diasSemana.length, diasSemana, nivel, equipo, enfasis,
       descargaHasta: i?.descargaHasta ?? null,
       ajusteKcal: i && objetivos(i).join() === metas.join() ? i.ajusteKcal : 0,
       ultimaRevision: i?.ultimaRevision ?? null,
     });
+    if (requiereElegirDificultad(i, nuevo)) return setEligiendo(nuevo);
+    p.onGuardar(nuevo);
   };
 
   return (
     <ScrollView contentContainerStyle={e.pagina} keyboardShouldPersistTaps="handled">
+      {eligiendo ? (
+        <ElegirDificultadInicial
+          perfil={eligiendo}
+          nuevo={!i}
+          onVolver={() => setEligiendo(null)}
+          onElegir={(n) => p.onGuardar({ ...eligiendo, dificultad: n, dificultadConfirmada: true })}
+        />
+      ) : null}
       <Titulo>{i ? 'Tu perfil' : 'Crea tu plan'}</Titulo>
       {!i ? <Text style={e.sub}>Con estos datos preparo tu semana de entreno, tus calorías y tu proteína.</Text> : null}
       <Opciones titulo="Sexo" valor={sexo} onCambio={setSexo} opciones={[['h', 'Hombre'], ['m', 'Mujer']]} />
@@ -116,7 +136,7 @@ function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void;
             );
           })}
         </View>
-        {avisoMetas ? <Text style={{ color: c.oro, fontSize: 15, lineHeight: 21 }}>{avisoMetas}</Text> : null}
+        {avisoMetas ? <Text style={{ color: c.oro, fontSize: tam(15), lineHeight: tam(21) }}>{avisoMetas}</Text> : null}
         {metas.length > 1 ? <Text style={e.sub}>{EXPLICA[[...metas].sort().join('+')] ?? ''}</Text> : null}
       </View>
       <View style={{ gap: 8 }}>
@@ -139,7 +159,8 @@ function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void;
           })}
         </View>
       </View>
-      <Opciones titulo="Experiencia" valor={nivel} onCambio={setNivel} opciones={[['principiante', 'Principiante'], ['intermedio', 'Intermedio'], ['avanzado', 'Avanzado']]} />
+      <Opciones titulo="Nivel físico" valor={nivel} onCambio={setNivel} opciones={[['principiante', 'Principiante'], ['intermedio', 'Intermedio'], ['avanzado', 'Avanzado']]} />
+      <Text style={e.sub}>Es tu propia valoración. No cambia la dificultad de tus entrenos: esa la eliges tú en Coach o en Rutinas.</Text>
       <Opciones titulo="¿Dónde entrenas?" valor={equipo} onCambio={setEquipo} opciones={[['gym', 'Gimnasio'], ['mancuernas', 'Solo mancuernas'], ['casa', 'En casa, sin material']]} />
       <View style={{ gap: 8 }}>
         <Text style={e.etiqueta}>Zonas que quieres priorizar (hasta 3)</Text>
@@ -166,10 +187,10 @@ function Formulario(p: { inicial: Perfil | null; onGuardar: (x: Perfil) => void;
             );
           })}
         </View>
-        {avisoZonas ? <Text style={{ color: c.oro, fontSize: 15, lineHeight: 21 }}>{avisoZonas}</Text> : null}
+        {avisoZonas ? <Text style={{ color: c.oro, fontSize: tam(15), lineHeight: tam(21) }}>{avisoZonas}</Text> : null}
         {enfasis.length ? <Text style={e.sub}>Esas zonas llevan una serie más.{enfasis.includes('abdomen') ? ' Abdomen: dos ejercicios cada día. Para que se marque, lo que más cuenta es bajar grasa: la comida pesa más que los abdominales.' : ''}</Text> : null}
       </View>
-      {error ? <Text style={{ color: c.rojo, fontSize: 15 }}>{error}</Text> : null}
+      {error ? <Text style={{ color: c.rojo, fontSize: tam(15) }}>{error}</Text> : null}
       {i ? <Text style={e.sub}>Si cambias objetivo, días, experiencia, lugar o zona, se rehacen las rutinas del coach.</Text> : null}
       <Pildora texto={i ? 'Guardar' : 'Crear mi plan'} onPress={guardar} />
       {p.onCancelar ? <Pildora texto="Cancelar" tipo="neutro" onPress={p.onCancelar} /> : null}
@@ -193,10 +214,12 @@ export function Coach(p: {
   onRestaurar: (copia: Datos) => void;
   onDescarga: (hasta: number | null) => void;
   onMedida: (zona: string, cm: number) => void;
+  onActualizar: (f: (d: Datos) => Datos) => void;
   cuenta?: { email: string | null; estado: EstadoNube; onEntrar: () => void; onSalir: () => void; onBorrar: () => Promise<boolean> } | null;
 }) {
   const [copia, setCopia] = useState<Datos | null>(null);
   const [sinGym, setSinGym] = useState(false);
+  const [ajustes, setAjustes] = useState(false);
   const [borrar, setBorrar] = useState<'no' | 'preguntar' | 'borrando' | 'error'>('no');
   const [errorCopia, setErrorCopia] = useState('');
   const [zona, setZona] = useState('Cintura');
@@ -224,12 +247,21 @@ export function Coach(p: {
   const plan = d.rutinas.filter((x) => x.deCoach).sort((a, b) => (a.dia ?? 0) - (b.dia ?? 0));
   const lunes = inicioSemana();
   const hoy = diaHoy();
+  const ver = (id: string) => !(d.ajustes?.inicio?.ocultas ?? []).includes(id);
   const pesoValido = aNumero(peso) >= 30 && aNumero(peso) <= 250;
 
   return (
     <ScrollView contentContainerStyle={e.pagina} keyboardShouldPersistTaps="handled">
-      <Titulo>Tu coach</Titulo>
-      <Instalar />
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Titulo>Tu coach</Titulo>
+          <EtiquetaBeta />
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Ajustes y apariencia" onPress={() => setAjustes(true)} hitSlop={8} style={e.engranaje}>
+          <Text style={{ fontSize: tam(22) }}>⚙️</Text>
+        </Pressable>
+      </View>
+      {ver('instalar') ? <Instalar /> : null}
       <Tarjeta>
         <Text style={e.grande}>{textoObjetivo(perfil)}</Text>
         <Text style={e.sub}>{perfil.dias} días por semana · {formatoNum(perfil.peso)} kg · IMC {formatoNum(Math.round(n.imc * 10) / 10)}</Text>
@@ -237,11 +269,13 @@ export function Coach(p: {
           <Cifra valor={String(n.kcal)} texto="kcal al día (media)" />
           <Cifra valor={`${n.proteina} g`} texto="proteína al día" />
         </View>
-        {n.aviso ? <Text style={{ color: c.oro, fontSize: 15, lineHeight: 21 }}>{n.aviso}</Text> : null}
+        {n.aviso ? <Text style={{ color: c.oro, fontSize: tam(15), lineHeight: tam(21) }}>{n.aviso}</Text> : null}
         <Pildora chica tipo="neutro" texto="Editar perfil" onPress={() => setEditando(true)} />
       </Tarjeta>
 
-      {p.cuenta?.email ? <ChatCoach d={d} /> : null}
+      {ver('atleta') ? <TarjetaAtleta d={d} onActualizar={p.onActualizar} misiones /> : null}
+
+      {iaActiva && p.cuenta?.email && ver('chat') ? <ChatCoach d={d} /> : null}
 
       <Text style={e.seccion}>Esta semana</Text>
       {plan.map((x) => {
@@ -254,7 +288,7 @@ export function Coach(p: {
               <Text style={e.sub}>{x.ejercicios.length} ejercicios · {x.ejercicios[0]?.reps}–{x.ejercicios[0]?.repsMax} reps</Text>
             </View>
             {hecha ? (
-              <Text style={{ color: c.verde, fontSize: 15, fontWeight: '800' }}>Hecho ✓</Text>
+              <Text style={{ color: c.verde, fontSize: tam(15), fontWeight: '800' }}>Hecho ✓</Text>
             ) : (
               <Pildora chica texto="Empezar" tipo={x.dia === hoy ? 'oro' : 'neutro'} onPress={() => p.onEmpezar(x)} />
             )}
@@ -265,14 +299,22 @@ export function Coach(p: {
         <Pildora chica tipo="neutro" texto="🏠 Hoy no tengo gym" onPress={() => setSinGym(true)} />
       ) : null}
 
+      {ver('dificultad') ? <TarjetaDificultad d={d} onActualizar={p.onActualizar} onDescarga={p.onDescarga} /> : null}
+
+      {ver('revision') ? (
+        <>
       <Text style={e.seccion}>Revisión semanal</Text>
       <Tarjeta>
         <Text style={e.rutina}>Últimos 7 días: {r.hechos} de {r.objetivo} entrenos</Text>
-        {r.suben.map((x) => (
-          <Text key={x.nombre} style={e.linea}>
-            {x.reps ? `${x.nombre}: intenta ${x.reps} repeticiones` : `Sube ${x.nombre} a ${formatoNum(x.peso)} kg`}
-          </Text>
-        ))}
+        {dolorReciente(d) ? (
+          <Text style={e.sub}>Marcaste molestias hace poco: no te propongo subir pesos ni repeticiones hasta que estés bien.</Text>
+        ) : (
+          r.suben.map((x) => (
+            <Text key={x.nombre} style={e.linea}>
+              {x.reps ? `${x.nombre}: intenta ${x.reps} repeticiones` : `Sube ${x.nombre} a ${formatoNum(x.peso)} kg`}
+            </Text>
+          ))
+        )}
         {r.estancados.map((x) => (
           <Text key={x} style={[e.linea, { color: c.rojo }]}>{x} lleva 3 entrenos sin mejorar</Text>
         ))}
@@ -307,6 +349,11 @@ export function Coach(p: {
         ) : null}
       </Tarjeta>
 
+        </>
+      ) : null}
+
+      {ver('peso') ? (
+        <>
       <Text style={e.seccion}>Peso corporal</Text>
       <Tarjeta>
         {d.pesos.length ? <Grafica puntos={d.pesos} /> : null}
@@ -324,6 +371,11 @@ export function Coach(p: {
         </View>
       </Tarjeta>
 
+        </>
+      ) : null}
+
+      {ver('medidas') ? (
+        <>
       <Text style={e.seccion}>Medidas</Text>
       <Tarjeta>
         <View style={e.chips}>
@@ -354,6 +406,9 @@ export function Coach(p: {
         </View>
       </Tarjeta>
 
+        </>
+      ) : null}
+
       {p.cuenta ? (
         <>
           <Text style={e.seccion}>Tu cuenta</Text>
@@ -361,16 +416,16 @@ export function Coach(p: {
             {p.cuenta.email ? (
               <>
                 <Text style={e.sub}>{p.cuenta.email}</Text>
-                <Text style={{ color: p.cuenta.estado === 'sin-conexion' ? c.oro : c.verde, fontSize: 15 }}>
-                  {p.cuenta.estado === 'guardado' ? '✓ Datos guardados en la nube' : p.cuenta.estado === 'guardando' ? 'Guardando…' : 'Sin conexión: se guarda en el móvil y se sube al volver'}
+                <Text style={{ color: p.cuenta.estado === 'sin-conexion' || p.cuenta.estado === 'version-antigua' ? c.oro : c.verde, fontSize: tam(15) }}>
+                  {p.cuenta.estado === 'guardado' ? '✓ Datos guardados en la nube' : p.cuenta.estado === 'guardando' ? 'Guardando…' : p.cuenta.estado === 'version-antigua' ? 'Tu cuenta tiene datos de una versión más nueva de FORJA. Recarga la página para actualizar: hasta entonces no se sincroniza.' : 'Sin conexión: se guarda en el móvil y se sube al volver'}
                 </Text>
                 <Pildora chica tipo="neutro" texto="Cerrar sesión" onPress={p.cuenta.onSalir} />
                 <Pildora chica tipo="peligro" texto="Borrar mi cuenta" onPress={() => setBorrar('preguntar')} />
-                {borrar === 'error' ? <Text style={{ color: c.rojo, fontSize: 15 }}>No se pudo borrar. Revisa tu conexión e inténtalo de nuevo.</Text> : null}
+                {borrar === 'error' ? <Text style={{ color: c.rojo, fontSize: tam(15) }}>No se pudo borrar. Revisa tu conexión e inténtalo de nuevo.</Text> : null}
               </>
             ) : (
               <>
-                <Text style={e.sub}>Estás usando la app sin cuenta: los datos solo viven en este móvil. Con una cuenta se guardan en la nube y puedes usar la IA (tickets, recetas y preguntar al coach).</Text>
+                <Text style={e.sub}>Estás usando la app sin cuenta: los datos solo viven en este móvil. Con una cuenta se guardan en la nube, se sincronizan entre tus dispositivos y puedes competir en FORJA Arena con tus amigos.</Text>
                 <Pildora chica texto="Crear cuenta o entrar" onPress={p.cuenta.onEntrar} />
               </>
             )}
@@ -402,9 +457,21 @@ export function Coach(p: {
                 }
               }}
             />
-            {errorCopia ? <Text style={{ color: c.rojo, fontSize: 15 }}>{errorCopia}</Text> : null}
+            {errorCopia ? <Text style={{ color: c.rojo, fontSize: tam(15) }}>{errorCopia}</Text> : null}
           </Tarjeta>
         </>
+      ) : null}
+
+      {ajustes ? (
+        <Ajustes
+          d={d}
+          onCerrar={() => setAjustes(false)}
+          onInicio={(inicio) => p.onActualizar((x) => ({ ...x, ajustes: { ...x.ajustes, inicio } }))}
+          onApariencia={(apariencia) => p.onActualizar((x) => ({ ...x, ajustes: { ...x.ajustes, apariencia } }))}
+          onRestaurar={p.onRestaurar}
+          conCuenta={!!p.cuenta?.email}
+          onDatos={p.onActualizar}
+        />
       ) : null}
 
       {sinGym ? (
@@ -428,7 +495,7 @@ export function Coach(p: {
       {borrar === 'preguntar' || borrar === 'borrando' ? (
         <Dialogo
           titulo="¿Borrar tu cuenta?"
-          mensaje="Se borran para siempre tu cuenta y todos tus datos en la nube: entrenos, comidas, despensa y retos. No se puede deshacer. Si quieres conservarlos, guarda antes una copia."
+          mensaje="Se borran tu cuenta, tus datos sincronizados, tu Arena y el texto de tus opiniones, y se vacían los datos de la app en este dispositivo. NO se borran solas las capturas que enviaste ni el nombre de los retos que creaste: para las capturas, escríbenos antes (ver Privacidad). No se puede deshacer; si quieres conservar tus datos, guarda antes una copia."
           si={borrar === 'borrando' ? 'Borrando…' : 'Sí, borrar todo'}
           peligro
           no="Cancelar"
@@ -461,7 +528,7 @@ export function Coach(p: {
       {cambios ? (
         <Dialogo titulo="Plan revisado" si="Listo" onSi={() => setCambios(null)}>
           {cambios.map((x) => (
-            <Text key={x} style={{ color: c.texto, fontSize: 16, lineHeight: 22 }}>{x}</Text>
+            <Text key={x} style={{ color: c.texto, fontSize: tam(16), lineHeight: tam(22) }}>{x}</Text>
           ))}
         </Dialogo>
       ) : null}
@@ -477,21 +544,22 @@ const Cifra = ({ valor, texto }: { valor: string; texto: string }) => (
 );
 
 const e = StyleSheet.create({
+  engranaje: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.campo, alignItems: 'center', justifyContent: 'center' },
   pagina: { padding: 16, gap: 14, paddingBottom: 32 },
-  sub: { color: c.suave, fontSize: 14, lineHeight: 20 },
-  etiqueta: { color: c.texto, fontSize: 15, fontWeight: '700' },
+  sub: { color: c.suave, fontSize: tam(14), lineHeight: tam(20) },
+  etiqueta: { color: c.texto, fontSize: tam(15), fontWeight: '700' },
   fila: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { backgroundColor: c.campo, borderRadius: 999, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
-  chipTexto: { color: c.texto, fontSize: 15, fontWeight: '700' },
-  grande: { color: c.texto, fontSize: 24, fontWeight: '900' },
+  chipTexto: { color: c.texto, fontSize: tam(15), fontWeight: '700' },
+  grande: { color: c.texto, fontSize: tam(24), fontWeight: '900' },
   datos: { flexDirection: 'row', marginVertical: 6 },
-  valor: { color: c.oro, fontSize: 28, fontWeight: '900' },
-  seccion: { color: c.texto, fontSize: 21, fontWeight: '900', marginTop: 6 },
+  valor: { color: c.oro, fontSize: tam(28), fontWeight: '900' },
+  seccion: { color: c.texto, fontSize: tam(21), fontWeight: '900', marginTop: 6 },
   dia: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.tarjeta, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: 'transparent' },
   diaHoy: { borderColor: c.oro },
-  diaNombre: { color: c.suave, width: 38, fontSize: 15, fontWeight: '800' },
-  rutina: { color: c.texto, fontSize: 17, fontWeight: '800' },
-  linea: { color: c.verde, fontSize: 15, lineHeight: 21, fontWeight: '700' },
-  nota: { color: c.suave, fontSize: 13, lineHeight: 18 },
+  diaNombre: { color: c.suave, width: tam(40), fontSize: tam(15), fontWeight: '800' },
+  rutina: { color: c.texto, fontSize: tam(17), fontWeight: '800' },
+  linea: { color: c.verde, fontSize: tam(15), lineHeight: tam(21), fontWeight: '700' },
+  nota: { color: c.suave, fontSize: tam(13), lineHeight: tam(18) },
 });

@@ -1,3 +1,4 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 // Todo lo que usa la IA: leer tickets, recetas y el chat del coach.
 // Los macros SIEMPRE se calculan con el catálogo de la app, no con lo que diga la IA.
 import { useState } from 'react';
@@ -8,7 +9,7 @@ import { Datos, Stock, claveDia, nuevoId } from './datos';
 import { ErrorIA, pedirIA, pedirJSON, textoErrorIA } from './nube';
 import { nutricion, textoObjetivo } from './reglas';
 import { metaDia } from './calculos';
-import { Campo, Pildora, Tarjeta, c } from './ui';
+import { Campo, Pildora, Tarjeta, c, tam } from './ui';
 import { elegirArchivo } from './web';
 
 const TIPOS: Tipo[] = ['proteina', 'legumbre', 'lacteo', 'suplemento', 'carbo', 'verdura', 'fruta', 'grasa'];
@@ -196,10 +197,10 @@ Pregunta: ${q}`,
 }
 
 const e = StyleSheet.create({
-  titulo: { color: c.texto, fontSize: 19, fontWeight: '900' },
-  sub: { color: c.suave, fontSize: 15, lineHeight: 21 },
+  titulo: { color: c.texto, fontSize: tam(19), fontWeight: '900' },
+  sub: { color: c.suave, fontSize: tam(15), lineHeight: tam(21) },
   respuesta: { backgroundColor: c.campo, borderRadius: 14, padding: 12 },
-  texto: { color: c.texto, fontSize: 16, lineHeight: 23 },
+  texto: { color: c.texto, fontSize: tam(16), lineHeight: tam(23) },
 });
 
 // ---------- Foto del plato ----------
@@ -265,7 +266,7 @@ export function FotoPlato({ onAnadir }: { onAnadir: (x: { nombre: string; protei
       ) : (
         <Pildora chica texto={estado === 'leyendo' ? 'Mirando tu plato…' : 'Hacer foto del plato'} deshabilitado={estado === 'leyendo'} onPress={foto} />
       )}
-      {error ? <Text style={{ color: c.rojo, fontSize: 15, lineHeight: 21 }}>{error}</Text> : null}
+      {error ? <Text style={{ color: c.rojo, fontSize: tam(15), lineHeight: tam(21) }}>{error}</Text> : null}
     </Tarjeta>
   );
 }

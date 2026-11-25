@@ -1,16 +1,17 @@
+// © 2026 FORJA · Licencia: ver LICENSE y NOTICE.md.
 // Pantallas de: mapa muscular, medallas, resumen para compartir y calculadora de discos.
-import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Rect } from 'react-native-svg';
+import { useEffect, useState } from 'react';
+import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 
 import { Datos, claveDia, formatoNum, pesoMaximo } from './datos';
-import { Medalla, Musculo, NOMBRE_MUSCULO, discosPorLado, medallas, musculosSemana } from './calculos';
+import { Medalla, Musculo, NOMBRE_MUSCULO, discosPorLado, musculosSemana } from './calculos';
 import { inicioSemana, nutricion } from './reglas';
-import { Campo, Dialogo, Pildora, Tarjeta, c } from './ui';
+import { Campo, Dialogo, Pildora, Tarjeta, c, tam } from './ui';
 import { compartirArchivo } from './web';
 
 // ---------- Mapa muscular ----------
-const colorSeries = (n: number) => (n <= 0 ? c.campo : n < 4 ? '#5A4A1C' : n < 10 ? '#A8862F' : c.oro);
+const colorSeries = (n: number) => (n <= 0 ? c.campo : n < 4 ? c.nivel1 : n < 10 ? c.nivel2 : c.nivel3);
 
 type Pieza = [Musculo | null, number, number, number, number];
 // [músculo, x, y, ancho, alto] sobre un cuerpo de 120 × 210
@@ -44,6 +45,17 @@ function Cuerpo({ piezas, series, titulo }: { piezas: Pieza[]; series: Record<Mu
         ))}
       </Svg>
       <Text style={e.mini}>{titulo}</Text>
+    </View>
+  );
+}
+
+// Músculos que trabaja un ejercicio (FORJA Academy): principales en intenso, secundarios en suave.
+export function MusculosEjercicio({ principales, secundarios }: { principales: Musculo[]; secundarios: Musculo[] }) {
+  const series = Object.fromEntries((Object.keys(NOMBRE_MUSCULO) as Musculo[]).map((m) => [m, principales.includes(m) ? 12 : secundarios.includes(m) ? 2 : 0])) as Record<Musculo, number>;
+  return (
+    <View style={{ flexDirection: 'row', gap: 8 }} accessibilityLabel={`Músculos principales: ${principales.map((m) => NOMBRE_MUSCULO[m]).join(', ')}${secundarios.length ? `. Secundarios: ${secundarios.map((m) => NOMBRE_MUSCULO[m]).join(', ')}` : ''}`}>
+      <Cuerpo piezas={DELANTE} series={series} titulo="Delante" />
+      <Cuerpo piezas={DETRAS} series={series} titulo="Detrás" />
     </View>
   );
 }
@@ -82,39 +94,141 @@ export function MapaMuscular({ d }: { d: Datos }) {
   );
 }
 
-// ---------- Medallas ----------
-export function Medallas({ d }: { d: Datos }) {
-  const lista = medallas(d);
-  const hechas = lista.filter((m) => m.hecho).length;
+// ---------- Estadísticas avanzadas ----------
+const FUENTE = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+const SEM = 7 * 86400000;
+function Barras({ valores, etiquetas, destacar, alto = 110, sufijo = '' }: { valores: number[]; etiquetas: string[]; destacar?: number; alto?: number; sufijo?: string }) {
+  const max = Math.max(1, ...valores);
+  const W = 320, ancho = (W - 10) / valores.length;
   return (
-    <Tarjeta>
-      <Text style={e.titulo}>🏅 Medallas · {hechas}/{lista.length}</Text>
-      <View style={e.rejilla}>
-        {lista.map((m) => (
-          <View key={m.id} style={[e.medalla, !m.hecho && { opacity: 0.4 }]} accessibilityLabel={`${m.titulo}: ${m.texto}${m.hecho ? ', conseguida' : ''}`}>
-            <Text style={{ fontSize: 26 }}>{m.icono}</Text>
-            <Text style={e.medallaTitulo} numberOfLines={2}>{m.titulo}</Text>
-            <Text style={e.mini} numberOfLines={2}>{m.hecho ? m.texto : `${m.texto} · ${m.progreso}`}</Text>
-          </View>
-        ))}
-      </View>
-    </Tarjeta>
+    <Svg width="100%" height={alto + 34} viewBox={`0 0 ${W} ${alto + 34}`} accessibilityLabel={valores.map((v, i) => `${etiquetas[i]}: ${formatoNum(Math.round(v))}${sufijo}`).join(', ')}>
+      {valores.map((v, i) => {
+        const h = Math.max(v > 0 ? 4 : 0, (v / max) * alto);
+        return <Rect key={i} x={5 + i * ancho + ancho * 0.18} y={14 + alto - h} width={ancho * 0.64} height={h} rx={5} fill={i === destacar ? c.oro : c.nivel2} />;
+      })}
+      {valores.map((v, i) => (
+        <SvgText key={`v${i}`} x={5 + i * ancho + ancho / 2} y={10 + alto - Math.max(0, (v / max) * alto)} fontFamily={FUENTE} fontSize={9} fill={c.suave} textAnchor="middle">{v > 0 ? (v >= 1000 ? `${Math.round(v / 1000)}k` : formatoNum(Math.round(v))) : ''}</SvgText>
+      ))}
+      {etiquetas.map((t, i) => (
+        <SvgText key={`t${i}`} x={5 + i * ancho + ancho / 2} y={alto + 30} fontFamily={FUENTE} fontSize={10} fill={c.suave} textAnchor="middle">{t}</SvgText>
+      ))}
+    </Svg>
   );
 }
 
-export function NuevasMedallas({ lista, onListo }: { lista: Medalla[]; onListo: () => void }) {
+function Linea({ puntos, alto = 110 }: { puntos: { t: number; v: number }[]; alto?: number }) {
+  const W = 320;
+  const min = Math.min(...puntos.map((p) => p.v)), max = Math.max(...puntos.map((p) => p.v));
+  const rango = Math.max(0.5, max - min);
+  const X = (i: number) => 16 + (i * (W - 32)) / Math.max(1, puntos.length - 1);
+  const Y = (v: number) => 12 + (1 - (v - min) / rango) * (alto - 24);
   return (
-    <Dialogo titulo={lista.length === 1 ? '¡Nueva medalla!' : `¡${lista.length} medallas nuevas!`} si="¡Vamos!" onSi={onListo}>
-      {lista.slice(0, 6).map((m) => (
-        <View key={m.id} style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-          <Text style={{ fontSize: 32 }}>{m.icono}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={e.medallaTitulo}>{m.titulo}</Text>
-            <Text style={e.sub}>{m.texto}</Text>
-          </View>
+    <Svg width="100%" height={alto + 16} viewBox={`0 0 ${W} ${alto + 16}`} accessibilityLabel={`Peso: de ${formatoNum(puntos[0].v)} a ${formatoNum(puntos[puntos.length - 1].v)} kg`}>
+      <Polyline points={puntos.map((p, i) => `${X(i)},${Y(p.v)}`).join(' ')} fill="none" stroke={c.oro} strokeWidth={3} strokeLinejoin="round" />
+      {puntos.map((p, i) => <Circle key={i} cx={X(i)} cy={Y(p.v)} r={3.5} fill={c.oro} />)}
+      <SvgText x={X(0)} y={alto + 12} fontFamily={FUENTE} fontSize={10} fill={c.suave}>{formatoNum(puntos[0].v)} kg</SvgText>
+      <SvgText x={X(puntos.length - 1)} y={alto + 12} fontFamily={FUENTE} fontSize={10} fill={c.suave} textAnchor="end">{formatoNum(puntos[puntos.length - 1].v)} kg</SvgText>
+    </Svg>
+  );
+}
+
+function Cifra({ v, t }: { v: string; t: string }) {
+  return (
+    <View style={e.cifra}>
+      <Text style={e.cifraValor} numberOfLines={1}>{v}</Text>
+      <Text style={e.mini}>{t}</Text>
+    </View>
+  );
+}
+
+export function Estadisticas({ d }: { d: Datos }) {
+  if (!d.sesiones.length) return null; // Progreso ya muestra su propio estado vacío
+  const lunes = inicioSemana();
+  const volumen = (desde: number) =>
+    d.sesiones.filter((s) => s.fecha >= desde && s.fecha < desde + SEM).reduce((t, s) => t + s.ejercicios.reduce((a, x) => a + x.series.reduce((b, y) => b + y.peso * y.reps, 0), 0), 0);
+  const semanas = Array.from({ length: 8 }, (_, i) => lunes - (7 - i) * SEM);
+  const vol = semanas.map(volumen);
+  const freq = Array(7).fill(0);
+  d.sesiones.forEach((s) => (freq[(new Date(s.fecha).getDay() + 6) % 7] += 1));
+  const ahora = new Date();
+  const mes = d.sesiones.filter((s) => { const f = new Date(s.fecha); return f.getMonth() === ahora.getMonth() && f.getFullYear() === ahora.getFullYear(); }).length;
+  const horas = Math.round(d.sesiones.reduce((a, s) => a + s.minutos, 0) / 60);
+  const total = d.sesiones.reduce((t, s) => t + s.ejercicios.reduce((a, x) => a + x.series.reduce((b, y) => b + y.peso * y.reps, 0), 0), 0);
+  // Récords recientes: la última vez que se superó el peso máximo de cada ejercicio.
+  const mejor = new Map<string, number>();
+  const records: { nombre: string; kg: number; fecha: number }[] = [];
+  for (const s of [...d.sesiones].reverse()) {
+    if (s.descarga) continue;
+    for (const x of s.ejercicios) {
+      const k = x.nombre.toLowerCase(), m = pesoMaximo(x.series);
+      if (m > 0 && mejor.has(k) && m > mejor.get(k)!) records.push({ nombre: x.nombre, kg: m, fecha: s.fecha });
+      if (m > 0) mejor.set(k, Math.max(m, mejor.get(k) ?? 0));
+    }
+  }
+  const pesos = d.pesos.slice(-10).map((p) => ({ t: p.fecha, v: p.max }));
+  const fmt = (t: number) => new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short' });
+  return (
+    <>
+      <View style={e.cifras}>
+        <Cifra v={String(d.sesiones.length)} t="entrenos en total" />
+        <Cifra v={String(mes)} t="este mes" />
+        <Cifra v={`${horas} h`} t="entrenando" />
+        <Cifra v={total >= 10000 ? `${formatoNum(Math.round(total / 1000))} t` : `${formatoNum(Math.round(total))} kg`} t="levantados" />
+      </View>
+      <Tarjeta>
+        <Text style={e.titulo}>📦 Volumen por semana</Text>
+        <Text style={e.sub}>Kilos × repeticiones de cada semana. Que suba poco a poco es buena señal.</Text>
+        <Barras valores={vol} etiquetas={semanas.map((t, i) => (i === 7 ? 'esta' : fmt(t).replace('.', '')))} destacar={7} />
+      </Tarjeta>
+      <Tarjeta>
+        <Text style={e.titulo}>📅 Qué días entrenas</Text>
+        <Barras valores={freq} etiquetas={['L', 'M', 'X', 'J', 'V', 'S', 'D']} destacar={freq.indexOf(Math.max(...freq))} alto={80} sufijo=" entrenos" />
+      </Tarjeta>
+      {pesos.length >= 2 ? (
+        <Tarjeta>
+          <Text style={e.titulo}>⚖️ Evolución de tu peso</Text>
+          <Linea puntos={pesos} />
+        </Tarjeta>
+      ) : null}
+      {records.length ? (
+        <Tarjeta>
+          <Text style={e.titulo}>⭐ Récords recientes</Text>
+          {records.slice(-5).reverse().map((r, i) => (
+            <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+              <Text style={[e.sub, { color: c.texto, flex: 1, flexShrink: 1 }]}>{r.nombre}</Text>
+              <Text style={[e.sub, { color: c.oro, fontWeight: '800' }]}>{formatoNum(r.kg)} kg · {fmt(r.fecha)}</Text>
+            </View>
+          ))}
+        </Tarjeta>
+      ) : null}
+    </>
+  );
+}
+
+// Aviso discreto de medalla nueva: aparece arriba, no bloquea y se va solo.
+export function NuevasMedallas({ lista, onListo }: { lista: Medalla[]; onListo: () => void }) {
+  const [entrada] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    Animated.spring(entrada, { toValue: 1, useNativeDriver: Platform.OS !== 'web', friction: 7 }).start();
+    const t = setTimeout(onListo, 5000);
+    return () => clearTimeout(t);
+  }, []);
+  const m = lista[0];
+  return (
+    <Animated.View
+      style={[e.toast, { opacity: entrada, transform: [{ translateY: entrada.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] }) }] }]}
+      accessibilityLiveRegion="polite"
+      accessibilityRole="alert"
+    >
+      <Pressable onPress={onListo} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }} accessibilityLabel={`Nueva medalla: ${m.titulo}. Toca para cerrar`}>
+        <Text style={{ fontSize: 30 }}>{m.icono}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={e.toastTitulo}>{lista.length === 1 ? '¡Nueva medalla!' : `¡${lista.length} medallas nuevas!`}</Text>
+          <Text style={e.sub} numberOfLines={2}>{lista.map((x) => x.titulo).join(' · ')}</Text>
         </View>
-      ))}
-    </Dialogo>
+        <Text style={{ color: c.suave, fontSize: tam(16) }}>✕</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -165,7 +279,8 @@ async function dibujarResumen(d: Datos): Promise<Blob> {
   const tarjeta = (y: number, valor: string, texto: string, color: string) => {
     x.fillStyle = '#252832';
     x.beginPath();
-    (x as any).roundRect ? (x as any).roundRect(80, y, W - 160, 190, 36) : x.rect(80, y, W - 160, 190);
+    if ((x as any).roundRect) (x as any).roundRect(80, y, W - 160, 190, 36);
+    else x.rect(80, y, W - 160, 190);
     x.fill();
     x.fillStyle = color;
     x.font = fuente(900, 96);
@@ -256,18 +371,23 @@ export function Discos({ peso, onCerrar }: { peso: number; onCerrar: () => void 
 }
 
 const e = StyleSheet.create({
-  titulo: { color: c.texto, fontSize: 19, fontWeight: '900' },
-  sub: { color: c.suave, fontSize: 15, lineHeight: 21 },
-  aviso: { color: c.oro, fontSize: 15, lineHeight: 21 },
-  nota: { color: c.suave, fontSize: 13, lineHeight: 18 },
-  mini: { color: c.suave, fontSize: 12 },
+  toast: { position: 'absolute', top: 12, left: 12, right: 12, zIndex: 50, maxWidth: 520, alignSelf: 'center', backgroundColor: c.tarjeta, borderRadius: 18, padding: 14, borderWidth: 1.5, borderColor: c.oro, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
+  toastTitulo: { color: c.oro, fontSize: tam(16), fontWeight: '900' },
+  titulo: { color: c.texto, fontSize: tam(19), fontWeight: '900' },
+  sub: { color: c.suave, fontSize: tam(15), lineHeight: tam(21) },
+  aviso: { color: c.oro, fontSize: tam(15), lineHeight: tam(21) },
+  nota: { color: c.suave, fontSize: tam(13), lineHeight: tam(18) },
+  mini: { color: c.suave, fontSize: tam(12) },
+  cifras: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  cifra: { width: '48%', flexGrow: 1, backgroundColor: c.tarjeta, borderRadius: 18, padding: 14, gap: 2, borderWidth: c.oscuro ? 0 : 1, borderColor: c.borde },
+  cifraValor: { color: c.texto, fontSize: tam(26), fontWeight: '900' },
   leyenda: { flexDirection: 'row', justifyContent: 'center', gap: 14, flexWrap: 'wrap' },
   rejilla: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   medalla: { width: '31%', flexGrow: 1, backgroundColor: c.campo, borderRadius: 14, padding: 10, alignItems: 'center', gap: 2 },
-  medallaTitulo: { color: c.texto, fontSize: 14, fontWeight: '800', textAlign: 'center' },
+  medallaTitulo: { color: c.texto, fontSize: tam(14), fontWeight: '800', textAlign: 'center' },
   chip: { paddingHorizontal: 12, minHeight: 38, borderRadius: 999, justifyContent: 'center', backgroundColor: c.campo },
-  chipTexto: { color: c.texto, fontSize: 14, fontWeight: '700' },
+  chipTexto: { color: c.texto, fontSize: tam(14), fontWeight: '700' },
   barra: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 90, paddingVertical: 6, flexWrap: 'wrap' },
   disco: { width: 30, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  discoTexto: { color: '#111', fontSize: 11, fontWeight: '900' },
+  discoTexto: { color: '#111', fontSize: tam(11), fontWeight: '900' },
 });
