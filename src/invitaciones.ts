@@ -9,7 +9,7 @@ import { Platform } from 'react-native';
 const CLAVE = 'forja:invitacion';
 const CODIGO = /^FORJA-[A-Z0-9]{4,6}$/;
 // Dirección pública de la app (la usada si no se puede deducir del navegador).
-const DIRECCION_PUBLICA = 'https://webvzla.github.io/forja/';
+const DIRECCION_PUBLICA = 'https://forjagym.app/';
 
 export const codigoValido = (c: string) => CODIGO.test(c.trim().toUpperCase());
 
